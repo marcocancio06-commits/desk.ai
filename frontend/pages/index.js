@@ -1,3 +1,4 @@
+import Navbar from '../components/marketing/Navbar';
 import Hero from '../components/marketing/Hero';
 import SocialProof from '../components/marketing/SocialProof';
 import HowItWorks from '../components/marketing/HowItWorks';
@@ -9,12 +10,17 @@ import FinalCTA from '../components/marketing/FinalCTA';
 export default function Home() {
   return (
     <div className="min-h-screen">
+      <Navbar />
       <Hero />
       <SocialProof />
       <HowItWorks />
-      <FeaturesGrid />
+      <div id="features">
+        <FeaturesGrid />
+      </div>
       <WhyDesk />
-      <PricingTeaser />
+      <div id="pricing">
+        <PricingTeaser />
+      </div>
       <FinalCTA />
     </div>
   );
