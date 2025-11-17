@@ -5,6 +5,7 @@ import LeadTable from './components/LeadTable';
 
 export default function Dashboard() {
   const [leads, setLeads] = useState([]);
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
@@ -12,6 +13,7 @@ export default function Dashboard() {
       .then(res => res.json())
       .then(data => {
         setLeads(data.leads);
+        setStats(data.stats);
         setLoading(false);
       })
       .catch(err => {
@@ -30,9 +32,10 @@ export default function Dashboard() {
     return leadDate.getTime() === today.getTime();
   });
   
-  const readyToBook = leads.filter(lead => lead.status === 'ready_to_book').length;
-  const booked = leads.filter(lead => lead.status === 'booked').length;
-  const newLeads = leads.filter(lead => lead.status === 'new').length;
+  const collectingInfo = stats?.collecting_info || 0;
+  const qualified = stats?.qualified || 0;
+  const scheduled = stats?.scheduled || 0;
+  const closedWon = stats?.closed_won || 0;
   
   // Recent activity (last 5 leads)
   const recentLeads = leads.slice(0, 5);
@@ -59,25 +62,25 @@ export default function Dashboard() {
           color="blue"
         />
         <StatCard
-          title="Ready to Book"
-          value={readyToBook}
-          subtitle="Need scheduling"
+          title="Collecting Info"
+          value={collectingInfo}
+          subtitle="Gathering details"
+          icon="💬"
+          color="yellow"
+        />
+        <StatCard
+          title="Qualified"
+          value={qualified}
+          subtitle="Ready to schedule"
           icon="✅"
           color="green"
         />
         <StatCard
-          title="Booked"
-          value={booked}
-          subtitle="Scheduled appointments"
-          icon="📅"
+          title="Scheduled"
+          value={scheduled}
+          subtitle="Booked appointments"
+          icon="�"
           color="purple"
-        />
-        <StatCard
-          title="New Inquiries"
-          value={newLeads}
-          subtitle="Awaiting response"
-          icon="🔔"
-          color="yellow"
         />
       </div>
       
