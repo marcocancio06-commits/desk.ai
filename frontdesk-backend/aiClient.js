@@ -1,4 +1,5 @@
 const { getBusinessConfig } = require('./businessConfig');
+const Anthropic = require('@anthropic-ai/sdk');
 
 // System prompt defining the role and behavior
 const systemPrompt = `You are a professional front desk assistant for a local service business. Your role is to:
@@ -7,7 +8,21 @@ const systemPrompt = `You are a professional front desk assistant for a local se
 - Collect necessary information to book appointments: ZIP code, issue description, preferred time
 - Assess urgency level (low, normal, high, emergency)
 - Be helpful, concise, and guide the conversation toward booking when appropriate
-- Always stay in character as a helpful business representative`;
+- Always stay in character as a helpful business representative
+
+CRITICAL: You must respond with ONLY valid JSON. No markdown, no extra text, no code blocks.
+Use this exact schema:
+{
+  "reply": "your response to the customer",
+  "booking_intent": "none" or "collecting_info" or "ready_to_book",
+  "collected_data": {
+    "issue_summary": "brief description of the issue or null",
+    "zip_code": "5-digit ZIP code or null",
+    "preferred_time": "time preference or null",
+    "urgency": "low" or "normal" or "high" or "emergency" or null
+  },
+  "internal_notes": "brief note about conversation state or null"
+}`;
 
 // Build a prompt string from business context and customer message
 function buildUserPrompt({ config, channel, from, message }) {
@@ -28,10 +43,10 @@ Channel: ${channel}
 Customer ID: ${from}
 Customer Message: "${message}"
 
-Respond to the customer and extract any relevant booking information.`;
+Respond to the customer and extract any relevant booking information. Return ONLY valid JSON, no other text.`;
 }
 
-// Extract data from message using simple pattern matching
+// Extract data from message using simple pattern matching (fallback)
 function extractDataFromMessage(message, msgLower) {
   const data = {
     issue_summary: null,
@@ -81,94 +96,72 @@ function extractDataFromMessage(message, msgLower) {
   return data;
 }
 
+// Fallback response when LLM is unavailable
+function getFallbackResponse() {
+  return {
+    reply: 'Thanks for your message — a team member will follow up shortly.',
+    booking_intent: 'none',
+    collected_data: {
+      issue_summary: null,
+      zip_code: null,
+      preferred_time: null,
+      urgency: null
+    },
+    internal_notes: 'LLM error, used fallback response.'
+  };
+}
+
 async function handleCustomerMessage({ businessId, from, channel, message }) {
   const config = getBusinessConfig(businessId);
-  const msgLower = message.toLowerCase().trim();
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   
-  // Build the prompt (for future LLM integration)
+  // Check if API key is available
+  if (!apiKey) {
+    console.warn('WARNING: ANTHROPIC_API_KEY not found in environment variables. Using fallback response.');
+    return getFallbackResponse();
+  }
+  
+  // Build the user prompt
   const userPrompt = buildUserPrompt({ config, channel, from, message });
   
-  // Extract data from the message
-  const extractedData = extractDataFromMessage(message, msgLower);
-  
-  // Initialize response structure
-  let reply = '';
-  let bookingIntent = 'none';
-  let internalNotes = null;
-  
-  // Greeting pattern
-  if (msgLower.match(/^(hi|hello|hey|good morning|good afternoon|good evening)/)) {
-    reply = `Hello! Welcome to ${config.name}. We're your trusted plumbing experts. We offer: ${config.services.join(', ')}. How can we help you today?`;
-    bookingIntent = 'none';
-    internalNotes = 'Customer initiated conversation with greeting';
-  }
-  
-  // Hours inquiry
-  else if (msgLower.includes('hour') || msgLower.includes('open') || msgLower.includes('when are you')) {
-    reply = `Our hours are:\n• Weekdays: ${config.hours.weekdays}\n• Saturday: ${config.hours.saturday}\n• Sunday: ${config.hours.sunday}\n\n${config.policies.emergency}`;
-    bookingIntent = 'none';
-    internalNotes = 'Customer asking about business hours';
-  }
-  
-  // Pricing inquiry
-  else if (msgLower.includes('price') || msgLower.includes('cost') || msgLower.includes('how much') || msgLower.includes('charge')) {
-    const pricingList = Object.entries(config.pricing)
-      .map(([service, price]) => `• ${service}: ${price}`)
-      .join('\n');
+  try {
+    // Initialize the client
+    const client = new Anthropic({
+      apiKey: apiKey,
+    });
     
-    reply = `Here are our typical price ranges:\n${pricingList}\n\n${config.policies.tripFee}\n\nWhat service do you need?`;
-    bookingIntent = 'none';
-    internalNotes = 'Customer inquiring about pricing';
-  }
-  
-  // ZIP code pattern (5 digits starting with 77)
-  else if (extractedData.zip_code) {
-    const zip = extractedData.zip_code;
+    // Call the API
+    const response = await client.messages.create({
+      model: 'claude-3-haiku-20240307',
+      max_tokens: 1024,
+      system: systemPrompt,
+      messages: [
+        {
+          role: 'user',
+          content: userPrompt
+        }
+      ],
+    });
     
-    if (config.serviceAreas.includes(zip)) {
-      reply = `Great news! We serve the ${zip} area. What plumbing issue are you experiencing? Also, what time would work best for you?`;
-      bookingIntent = 'collecting_info';
-      internalNotes = `Customer in service area ${zip}, collecting issue and time preference`;
-    } else {
-      reply = `Unfortunately, we don't currently serve the ${zip} area. We service these ZIP codes: ${config.serviceAreas.join(', ')}. If you're in one of these areas, we'd be happy to help!`;
-      bookingIntent = 'none';
-      internalNotes = `Customer outside service area (${zip})`;
+    // Extract the text content
+    const textContent = response.content[0].text;
+    
+    // Parse the JSON response
+    const parsedResponse = JSON.parse(textContent);
+    
+    // Validate the response has required fields
+    if (!parsedResponse.reply || !parsedResponse.booking_intent || !parsedResponse.collected_data) {
+      throw new Error('Invalid response structure from LLM');
     }
+    
+    return parsedResponse;
+    
+  } catch (error) {
+    console.error('Error calling LLM:', error.message);
+    
+    // Return fallback response
+    return getFallbackResponse();
   }
-  
-  // Has issue description - collecting more info
-  else if (extractedData.issue_summary) {
-    reply = `I understand you're having trouble with ${extractedData.issue_summary}. To help you better, could you provide:\n• Your ZIP code\n• When you'd like us to come out`;
-    bookingIntent = 'collecting_info';
-    internalNotes = 'Customer described issue, need ZIP and time';
-  }
-  
-  // Default response - gather information
-  else {
-    reply = `Thanks for reaching out to ${config.name}! To help you better, I need a few details:\n\n1. What's your ZIP code?\n2. What plumbing issue are you experiencing?\n3. What's your preferred appointment time?\n\nYou can also ask about our hours, pricing, or services anytime!`;
-    bookingIntent = 'collecting_info';
-    internalNotes = 'Initial contact, gathering all information';
-  }
-  
-  // Check if we have enough info to book
-  if (extractedData.zip_code && extractedData.issue_summary && extractedData.preferred_time) {
-    if (config.serviceAreas.includes(extractedData.zip_code)) {
-      bookingIntent = 'ready_to_book';
-      internalNotes = 'All booking information collected and validated';
-    }
-  }
-  
-  return {
-    reply,
-    booking_intent: bookingIntent,
-    collected_data: {
-      issue_summary: extractedData.issue_summary,
-      zip_code: extractedData.zip_code,
-      preferred_time: extractedData.preferred_time,
-      urgency: extractedData.urgency
-    },
-    internal_notes: internalNotes
-  };
 }
 
 module.exports = { handleCustomerMessage };
