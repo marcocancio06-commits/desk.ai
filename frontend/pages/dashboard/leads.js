@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import LeadTable from './components/LeadTable';
+import LeadDetailPanel from '../../components/dashboard/LeadDetailPanel';
 import { BACKEND_URL, DEFAULT_BUSINESS_ID } from '../../lib/config';
 
 export default function Leads() {
@@ -8,6 +9,7 @@ export default function Leads() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all');
+  const [selectedLeadId, setSelectedLeadId] = useState(null);
   
   useEffect(() => {
     // Fetch leads from backend API
@@ -33,6 +35,30 @@ export default function Leads() {
   const filteredLeads = filter === 'all' 
     ? leads 
     : leads.filter(lead => lead.status === filter);
+  
+  // Get selected lead object
+  const selectedLead = selectedLeadId 
+    ? leads.find(lead => lead.id === selectedLeadId)
+    : null;
+  
+  // Handle lead update from detail panel
+  const handleLeadUpdate = (updatedLead) => {
+    setLeads(prevLeads => 
+      prevLeads.map(lead => 
+        lead.id === updatedLead.id ? updatedLead : lead
+      )
+    );
+  };
+  
+  // Handle row click to open detail panel
+  const handleLeadClick = (leadId) => {
+    setSelectedLeadId(leadId);
+  };
+  
+  // Handle closing detail panel
+  const handleClosePanel = () => {
+    setSelectedLeadId(null);
+  };
   
   const statusCounts = {
     all: leads.length,
@@ -172,7 +198,16 @@ export default function Leads() {
           </p>
         </div>
       ) : (
-        <LeadTable leads={filteredLeads} />
+        <LeadTable leads={filteredLeads} onLeadClick={handleLeadClick} />
+      )}
+      
+      {/* Lead Detail Panel */}
+      {selectedLead && (
+        <LeadDetailPanel 
+          lead={selectedLead}
+          onClose={handleClosePanel}
+          onUpdate={handleLeadUpdate}
+        />
       )}
     </Layout>
   );

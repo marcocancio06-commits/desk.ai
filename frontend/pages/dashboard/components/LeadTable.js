@@ -1,4 +1,4 @@
-export default function LeadTable({ leads }) {
+export default function LeadTable({ leads, onLeadClick }) {
   const getStatusColor = (status) => {
     const colors = {
       new: 'bg-blue-100 text-blue-800',
@@ -56,9 +56,13 @@ export default function LeadTable({ leads }) {
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {leads.map((lead) => (
-              <tr key={lead.id} className="hover:bg-gray-50">
+              <tr 
+                key={lead.id} 
+                onClick={() => onLeadClick && onLeadClick(lead.id)}
+                className="hover:bg-gray-50 cursor-pointer transition-colors"
+              >
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">{lead.name}</div>
+                  <div className="text-sm font-medium text-gray-900">{lead.customerName || 'Unknown'}</div>
                   {lead.zipCode && (
                     <div className="text-sm text-gray-500">{lead.zipCode}</div>
                   )}
@@ -67,7 +71,9 @@ export default function LeadTable({ leads }) {
                   <div className="text-sm text-gray-900">{lead.phone}</div>
                 </td>
                 <td className="px-6 py-4">
-                  <div className="text-sm text-gray-900 max-w-xs truncate">{lead.issue}</div>
+                  <div className="text-sm text-gray-900 max-w-xs truncate">
+                    {lead.issueSummary || lead.lastMessage || 'No details'}
+                  </div>
                   {lead.preferredTime && (
                     <div className="text-xs text-gray-500 mt-1">
                       Preferred: {lead.preferredTime}
