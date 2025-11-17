@@ -76,6 +76,8 @@ function upsertLeadFromMessage({ businessId, channel, from, message, aiResult })
       preferredTime: aiResult.collected_data?.preferred_time || null,
       urgency: aiResult.collected_data?.urgency || null,
       status: mapIntentToStatus(aiResult.booking_intent),
+      scheduledTime: null, // Business owner can set this later
+      ownerNotes: null, // Business owner's notes
       createdAt: now,
       updatedAt: now,
       messages: [
@@ -192,11 +194,59 @@ function getAppointments(businessId) {
   }));
 }
 
+// Update specific fields of a lead
+// TODO: Add authentication to verify business owner can update this lead
+function updateLeadFields({ leadId, businessId, status, urgency, scheduledTime, ownerNotes }) {
+  // Find the lead by ID and verify it belongs to this business
+  const lead = leads.find(l => l.id === leadId && l.businessId === businessId);
+  
+  if (!lead) {
+    return null; // Lead not found or doesn't belong to this business
+  }
+  
+  // Define valid values for validation
+  const validStatuses = ['new', 'collecting_info', 'qualified', 'quoted', 'scheduled', 'closed_won', 'closed_lost'];
+  const validUrgencies = ['low', 'normal', 'high', 'emergency'];
+  
+  // Update only provided fields
+  if (status !== undefined) {
+    // Validate status before updating
+    if (validStatuses.includes(status)) {
+      lead.status = status;
+    }
+    // If invalid, keep existing status (don't crash)
+  }
+  
+  if (urgency !== undefined) {
+    // Validate urgency before updating
+    if (validUrgencies.includes(urgency)) {
+      lead.urgency = urgency;
+    }
+    // If invalid, keep existing urgency (don't crash)
+  }
+  
+  if (scheduledTime !== undefined) {
+    // Allow null to clear the scheduled time
+    lead.scheduledTime = scheduledTime;
+  }
+  
+  if (ownerNotes !== undefined) {
+    // Allow empty string or null
+    lead.ownerNotes = ownerNotes;
+  }
+  
+  // Update the timestamp
+  lead.updatedAt = new Date().toISOString();
+  
+  return lead;
+}
+
 module.exports = {
   upsertLeadFromMessage,
   getLeadsForBusiness,
   getLeadById,
   getLeadStats,
   getMetricsForPeriods,
-  getAppointments
+  getAppointments,
+  updateLeadFields
 };

@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const { handleCustomerMessage, generateDailySummary } = require('./aiClient');
-const { upsertLeadFromMessage, getLeadsForBusiness, getLeadStats, getMetricsForPeriods, getAppointments } = require('./leadStore');
+const { upsertLeadFromMessage, getLeadsForBusiness, getLeadStats, getMetricsForPeriods, getAppointments, updateLeadFields } = require('./leadStore');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -129,6 +129,56 @@ app.get('/api/summary', async (req, res) => {
     console.error('Error generating summary:', error);
     res.status(500).json({ 
       error: 'Failed to generate summary' 
+    });
+  }
+});
+
+// Update a lead's fields (status, urgency, scheduledTime, ownerNotes)
+// TODO: Add authentication to verify business owner permissions
+app.patch('/api/leads/:id', (req, res) => {
+  const { id } = req.params;
+  const { businessId, status, urgency, scheduledTime, ownerNotes } = req.body;
+  
+  // Validate required fields
+  if (!businessId) {
+    return res.status(400).json({ 
+      error: 'businessId is required in request body' 
+    });
+  }
+  
+  if (!id) {
+    return res.status(400).json({ 
+      error: 'Lead ID is required in URL path' 
+    });
+  }
+  
+  try {
+    // Update the lead with provided fields
+    const updatedLead = updateLeadFields({
+      leadId: id,
+      businessId,
+      status,
+      urgency,
+      scheduledTime,
+      ownerNotes
+    });
+    
+    // Check if lead was found
+    if (!updatedLead) {
+      return res.status(404).json({ 
+        error: 'Lead not found or does not belong to this business' 
+      });
+    }
+    
+    // Return the updated lead
+    res.status(200).json({ 
+      lead: updatedLead,
+      message: 'Lead updated successfully'
+    });
+  } catch (error) {
+    console.error('Error updating lead:', error);
+    res.status(500).json({ 
+      error: 'Failed to update lead' 
     });
   }
 });
