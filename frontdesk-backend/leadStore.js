@@ -125,9 +125,78 @@ function getLeadStats(businessId) {
   };
 }
 
+// Helper to check if a date is today (same calendar day)
+function isToday(dateString) {
+  const date = new Date(dateString);
+  const today = new Date();
+  
+  return date.getFullYear() === today.getFullYear() &&
+         date.getMonth() === today.getMonth() &&
+         date.getDate() === today.getDate();
+}
+
+// Helper to check if a date is within last N days
+function isWithinLastNDays(dateString, days) {
+  const date = new Date(dateString);
+  const now = new Date();
+  const nDaysAgo = new Date(now.getTime() - (days * 24 * 60 * 60 * 1000));
+  
+  return date >= nDaysAgo;
+}
+
+// Get metrics for today and last 7 days
+function getMetricsForPeriods(businessId) {
+  const businessLeads = leads.filter(lead => lead.businessId === businessId);
+  
+  // Today's leads
+  const todayLeads = businessLeads.filter(l => isToday(l.createdAt));
+  
+  // Last 7 days leads
+  const last7DaysLeads = businessLeads.filter(l => isWithinLastNDays(l.createdAt, 7));
+  
+  // Helper to count by status
+  const countByStatus = (leadsArray) => ({
+    totalLeads: leadsArray.length,
+    new: leadsArray.filter(l => l.status === 'new').length,
+    collecting_info: leadsArray.filter(l => l.status === 'collecting_info').length,
+    qualified: leadsArray.filter(l => l.status === 'qualified').length,
+    scheduled: leadsArray.filter(l => l.status === 'scheduled').length,
+    urgent: leadsArray.filter(l => l.urgency === 'high' || l.urgency === 'emergency').length
+  });
+  
+  return {
+    today: countByStatus(todayLeads),
+    last7Days: countByStatus(last7DaysLeads)
+  };
+}
+
+// Get appointments (qualified or scheduled leads)
+function getAppointments(businessId) {
+  const businessLeads = leads.filter(lead => lead.businessId === businessId);
+  
+  // Filter for qualified or scheduled leads
+  const appointmentLeads = businessLeads.filter(l => 
+    l.status === 'qualified' || l.status === 'scheduled'
+  );
+  
+  // Map to appointment format
+  return appointmentLeads.map(lead => ({
+    id: `apt-${lead.id}`,
+    leadId: lead.id,
+    customerName: lead.customerName,
+    phone: lead.phone,
+    issueSummary: lead.issueSummary,
+    scheduledTime: lead.preferredTime, // Could be null
+    status: lead.status,
+    urgency: lead.urgency
+  }));
+}
+
 module.exports = {
   upsertLeadFromMessage,
   getLeadsForBusiness,
   getLeadById,
-  getLeadStats
+  getLeadStats,
+  getMetricsForPeriods,
+  getAppointments
 };

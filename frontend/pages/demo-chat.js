@@ -1,7 +1,5 @@
 import { useState } from 'react'
-
-// TODO: Move to environment variable
-const BACKEND_URL = 'http://localhost:3001'
+import { BACKEND_URL, DEFAULT_BUSINESS_ID } from '../lib/config'
 
 export default function DemoChat() {
   const [customerPhone, setCustomerPhone] = useState('')
@@ -40,7 +38,7 @@ export default function DemoChat() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          businessId: 'demo-plumbing',
+          businessId: DEFAULT_BUSINESS_ID,
           from: customerPhone,
           channel: 'web_chat',
           message: userMessage

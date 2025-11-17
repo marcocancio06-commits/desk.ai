@@ -2,22 +2,31 @@ import { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import StatCard from './components/StatCard';
 import LeadTable from './components/LeadTable';
+import { BACKEND_URL, DEFAULT_BUSINESS_ID } from '../../lib/config';
 
 export default function Dashboard() {
   const [leads, setLeads] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   
   useEffect(() => {
-    fetch('/api/leads')
-      .then(res => res.json())
+    // Fetch leads from backend API
+    fetch(`${BACKEND_URL}/api/leads?businessId=${DEFAULT_BUSINESS_ID}`)
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`Failed to fetch leads: ${res.status}`);
+        }
+        return res.json();
+      })
       .then(data => {
-        setLeads(data.leads);
+        setLeads(data.leads || []);
         setStats(data.stats);
         setLoading(false);
       })
       .catch(err => {
         console.error('Error fetching leads:', err);
+        setError(err.message);
         setLoading(false);
       });
   }, []);
@@ -44,7 +53,24 @@ export default function Dashboard() {
     return (
       <Layout title="Dashboard" subtitle="Overview of your business activity">
         <div className="flex items-center justify-center h-64">
-          <div className="text-gray-500">Loading...</div>
+          <div className="text-gray-500">Loading dashboard...</div>
+        </div>
+      </Layout>
+    );
+  }
+  
+  if (error) {
+    return (
+      <Layout title="Dashboard" subtitle="Overview of your business activity">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="text-red-500 text-6xl mb-4">⚠️</div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Failed to load dashboard</h3>
+            <p className="text-gray-500 mb-4">{error}</p>
+            <p className="text-sm text-gray-400">
+              Make sure the backend server is running on {BACKEND_URL}
+            </p>
+          </div>
         </div>
       </Layout>
     );

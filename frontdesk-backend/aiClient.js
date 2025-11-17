@@ -164,4 +164,95 @@ async function handleCustomerMessage({ businessId, from, channel, message }) {
   }
 }
 
-module.exports = { handleCustomerMessage };
+// Generate a daily summary for business owners
+async function generateDailySummary({ businessId, metrics, appointments }) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  
+  // Fallback if no API key
+  if (!apiKey) {
+    const todayLeads = metrics.today.totalLeads;
+    const urgentCount = metrics.today.urgent || 0;
+    const qualifiedCount = metrics.today.qualified || 0;
+    
+    return {
+      text: `Today you received ${todayLeads} lead${todayLeads !== 1 ? 's' : ''}, with ${urgentCount} urgent and ${qualifiedCount} ready to book. Check the dashboard for details.`,
+      model: null,
+      generatedAt: new Date().toISOString()
+    };
+  }
+  
+  // Build compact data for the AI
+  const summaryData = {
+    today: metrics.today,
+    last7Days: metrics.last7Days,
+    appointmentCount: appointments.length,
+    sampleAppointments: appointments.slice(0, 3).map(apt => ({
+      issue: apt.issueSummary,
+      urgency: apt.urgency,
+      time: apt.scheduledTime
+    }))
+  };
+  
+  const systemPrompt = `You are an assistant generating a short operational summary for a small service business owner. 
+Use 2-4 short paragraphs or bullet points.
+No marketing fluff, focus on operational insights: volume, urgency, follow-ups, next actions.
+Be concise and actionable.`;
+  
+  const userPrompt = `Generate a brief daily summary based on this data:
+
+Today's metrics:
+- Total leads: ${metrics.today.totalLeads}
+- New: ${metrics.today.new}
+- Collecting info: ${metrics.today.collecting_info}
+- Qualified: ${metrics.today.qualified}
+- Scheduled: ${metrics.today.scheduled}
+- Urgent: ${metrics.today.urgent}
+
+Last 7 days metrics:
+- Total leads: ${metrics.last7Days.totalLeads}
+- Urgent: ${metrics.last7Days.urgent}
+
+Appointments ready: ${appointments.length}
+
+Provide a brief, actionable summary for the business owner. Focus on what they need to know and do today.`;
+  
+  try {
+    const client = new Anthropic({ apiKey });
+    
+    const response = await client.messages.create({
+      model: 'claude-3-haiku-20240307',
+      max_tokens: 300,
+      system: systemPrompt,
+      messages: [
+        {
+          role: 'user',
+          content: userPrompt
+        }
+      ],
+    });
+    
+    const summaryText = response.content[0].text;
+    
+    return {
+      text: summaryText,
+      model: 'claude-3-haiku-20240307',
+      generatedAt: new Date().toISOString()
+    };
+    
+  } catch (error) {
+    console.error('Error generating AI summary:', error.message);
+    
+    // Fallback
+    const todayLeads = metrics.today.totalLeads;
+    const urgentCount = metrics.today.urgent || 0;
+    const qualifiedCount = metrics.today.qualified || 0;
+    
+    return {
+      text: `Today you received ${todayLeads} lead${todayLeads !== 1 ? 's' : ''}, with ${urgentCount} urgent and ${qualifiedCount} ready to book. Check the dashboard for details.`,
+      model: null,
+      generatedAt: new Date().toISOString()
+    };
+  }
+}
+
+module.exports = { handleCustomerMessage, generateDailySummary };

@@ -1,21 +1,30 @@
 import { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import LeadTable from './components/LeadTable';
+import { BACKEND_URL, DEFAULT_BUSINESS_ID } from '../../lib/config';
 
 export default function Leads() {
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all');
   
   useEffect(() => {
-    fetch('/api/leads')
-      .then(res => res.json())
+    // Fetch leads from backend API
+    fetch(`${BACKEND_URL}/api/leads?businessId=${DEFAULT_BUSINESS_ID}`)
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`Failed to fetch leads: ${res.status}`);
+        }
+        return res.json();
+      })
       .then(data => {
-        setLeads(data.leads);
+        setLeads(data.leads || []);
         setLoading(false);
       })
       .catch(err => {
         console.error('Error fetching leads:', err);
+        setError(err.message);
         setLoading(false);
       });
   }, []);
@@ -29,9 +38,10 @@ export default function Leads() {
     all: leads.length,
     new: leads.filter(l => l.status === 'new').length,
     collecting_info: leads.filter(l => l.status === 'collecting_info').length,
-    ready_to_book: leads.filter(l => l.status === 'ready_to_book').length,
-    booked: leads.filter(l => l.status === 'booked').length,
-    closed: leads.filter(l => l.status === 'closed').length,
+    qualified: leads.filter(l => l.status === 'qualified').length,
+    scheduled: leads.filter(l => l.status === 'scheduled').length,
+    closed_won: leads.filter(l => l.status === 'closed_won').length,
+    closed_lost: leads.filter(l => l.status === 'closed_lost').length,
   };
   
   if (loading) {
@@ -39,6 +49,23 @@ export default function Leads() {
       <Layout title="Leads" subtitle="Manage customer inquiries">
         <div className="flex items-center justify-center h-64">
           <div className="text-gray-500">Loading leads...</div>
+        </div>
+      </Layout>
+    );
+  }
+  
+  if (error) {
+    return (
+      <Layout title="Leads" subtitle="Manage customer inquiries">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="text-red-500 text-6xl mb-4">⚠️</div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Failed to load leads</h3>
+            <p className="text-gray-500 mb-4">{error}</p>
+            <p className="text-sm text-gray-400">
+              Make sure the backend server is running on {BACKEND_URL}
+            </p>
+          </div>
         </div>
       </Layout>
     );
@@ -90,42 +117,42 @@ export default function Leads() {
               </span>
             </button>
             <button
-              onClick={() => setFilter('ready_to_book')}
+              onClick={() => setFilter('qualified')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                filter === 'ready_to_book'
+                filter === 'qualified'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              Ready to Book
+              Qualified
               <span className="ml-2 py-0.5 px-2 rounded-full text-xs bg-green-100 text-green-800">
-                {statusCounts.ready_to_book}
+                {statusCounts.qualified}
               </span>
             </button>
             <button
-              onClick={() => setFilter('booked')}
+              onClick={() => setFilter('scheduled')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                filter === 'booked'
+                filter === 'scheduled'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              Booked
+              Scheduled
               <span className="ml-2 py-0.5 px-2 rounded-full text-xs bg-purple-100 text-purple-800">
-                {statusCounts.booked}
+                {statusCounts.scheduled}
               </span>
             </button>
             <button
-              onClick={() => setFilter('closed')}
+              onClick={() => setFilter('closed_won')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                filter === 'closed'
+                filter === 'closed_won'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              Closed
-              <span className="ml-2 py-0.5 px-2 rounded-full text-xs bg-gray-100 text-gray-800">
-                {statusCounts.closed}
+              Closed Won
+              <span className="ml-2 py-0.5 px-2 rounded-full text-xs bg-green-100 text-green-800">
+                {statusCounts.closed_won}
               </span>
             </button>
           </nav>

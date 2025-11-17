@@ -1,8 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
-const { handleCustomerMessage } = require('./aiClient');
-const { upsertLeadFromMessage, getLeadsForBusiness, getLeadStats } = require('./leadStore');
+const { handleCustomerMessage, generateDailySummary } = require('./aiClient');
+const { upsertLeadFromMessage, getLeadsForBusiness, getLeadStats, getMetricsForPeriods, getAppointments } = require('./leadStore');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -85,6 +85,50 @@ app.get('/api/leads', (req, res) => {
     console.error('Error fetching leads:', error);
     res.status(500).json({ 
       error: 'Failed to fetch leads' 
+    });
+  }
+});
+
+// Get daily summary with metrics and AI-generated insights
+app.get('/api/summary', async (req, res) => {
+  const { businessId } = req.query;
+  
+  // Default to demo-plumbing if not provided
+  const targetBusinessId = businessId || 'demo-plumbing';
+  
+  try {
+    // Get metrics for today and last 7 days
+    const metrics = getMetricsForPeriods(targetBusinessId);
+    
+    // Get appointments (qualified or scheduled leads)
+    const appointments = getAppointments(targetBusinessId);
+    
+    // Generate AI summary
+    const aiSummary = await generateDailySummary({
+      businessId: targetBusinessId,
+      metrics,
+      appointments
+    });
+    
+    // Calculate date range
+    const today = new Date();
+    const last7DaysStart = new Date(today.getTime() - (7 * 24 * 60 * 60 * 1000));
+    
+    // Return complete summary
+    res.status(200).json({
+      businessId: targetBusinessId,
+      dateRange: {
+        today: today.toISOString().split('T')[0],
+        last7DaysStart: last7DaysStart.toISOString().split('T')[0]
+      },
+      metrics,
+      appointments,
+      aiSummary
+    });
+  } catch (error) {
+    console.error('Error generating summary:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate summary' 
     });
   }
 });
