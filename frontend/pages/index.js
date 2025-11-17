@@ -2,6 +2,7 @@ import Navbar from '../components/marketing/Navbar';
 import Hero from '../components/marketing/Hero';
 import SocialProof from '../components/marketing/SocialProof';
 import HowItWorks from '../components/marketing/HowItWorks';
+import ProductPreview from '../components/marketing/ProductPreview';
 import WhoItIsFor from '../components/marketing/WhoItIsFor';
 import FeaturesGrid from '../components/marketing/FeaturesGrid';
 import WhatChanges from '../components/marketing/WhatChanges';
@@ -16,6 +17,7 @@ export default function Home() {
       <Hero />
       <SocialProof />
       <HowItWorks />
+      <ProductPreview />
       <WhoItIsFor />
       <div id="features">
         <FeaturesGrid />
