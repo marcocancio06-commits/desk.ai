@@ -30,18 +30,40 @@ app.post('/api/message', async (req, res) => {
   }
   
   try {
+    const targetBusinessId = businessId || 'demo-plumbing';
+    const targetFrom = from || 'unknown';
+    
+    // Get existing lead to retrieve conversation state
+    const existingLeads = getLeadsForBusiness(targetBusinessId);
+    const existingLead = existingLeads.find(l => l.phone === targetFrom);
+    
+    // Build conversation state from existing lead
+    let conversationState = null;
+    if (existingLead) {
+      conversationState = {
+        collected_data: {
+          issue_summary: existingLead.issueSummary,
+          zip_code: existingLead.zipCode,
+          preferred_time: existingLead.preferredTime,
+          urgency: existingLead.urgency
+        }
+      };
+    }
+    
+    // Call AI with conversation state
     const aiResult = await handleCustomerMessage({
-      businessId: businessId || 'demo-plumbing',
-      from: from || 'unknown',
+      businessId: targetBusinessId,
+      from: targetFrom,
       channel: channel || 'web',
-      message
+      message,
+      conversationState
     });
     
     // Save or update the lead from this conversation
     const lead = upsertLeadFromMessage({
-      businessId: businessId || 'demo-plumbing',
+      businessId: targetBusinessId,
       channel: channel || 'web',
-      from: from || 'unknown',
+      from: targetFrom,
       message,
       aiResult
     });
