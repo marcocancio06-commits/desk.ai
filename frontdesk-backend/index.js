@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const nodemailer = require('nodemailer');
 require('dotenv').config();
 const { handleCustomerMessage, generateDailySummary } = require('./aiClient');
 const { upsertLeadFromMessage, getLeadsForBusiness, getLeadStats, getMetricsForPeriods, getAppointments, updateLeadFields } = require('./leadStore');
@@ -179,6 +180,93 @@ app.patch('/api/leads/:id', (req, res) => {
     console.error('Error updating lead:', error);
     res.status(500).json({ 
       error: 'Failed to update lead' 
+    });
+  }
+});
+
+// Bug report endpoint
+app.post('/api/report-bug', async (req, res) => {
+  const { message, userEmail, context } = req.body;
+  
+  if (!message || !message.trim()) {
+    return res.status(400).json({ 
+      ok: false,
+      error: 'Message is required' 
+    });
+  }
+
+  try {
+    // Check if SMTP is configured
+    const smtpConfigured = process.env.BUG_REPORT_SMTP_USER && 
+                           process.env.BUG_REPORT_SMTP_PASS &&
+                           process.env.BUG_REPORT_SMTP_HOST;
+
+    if (!smtpConfigured) {
+      // Log to console if SMTP not configured
+      console.log('\n=== BUG REPORT (SMTP not configured) ===');
+      console.log('From:', userEmail || 'Anonymous');
+      console.log('Message:', message);
+      console.log('Context:', JSON.stringify(context, null, 2));
+      console.log('Timestamp:', new Date().toISOString());
+      console.log('=====================================\n');
+      
+      return res.status(200).json({ 
+        ok: true,
+        message: 'Bug report logged (email not configured)'
+      });
+    }
+
+    // Create SMTP transporter
+    const transporter = nodemailer.createTransporter({
+      host: process.env.BUG_REPORT_SMTP_HOST,
+      port: parseInt(process.env.BUG_REPORT_SMTP_PORT || '587'),
+      secure: false, // use TLS
+      auth: {
+        user: process.env.BUG_REPORT_SMTP_USER,
+        pass: process.env.BUG_REPORT_SMTP_PASS
+      }
+    });
+
+    // Format email
+    const emailHtml = `
+      <h2>Bug Report from Desk.ai Demo</h2>
+      <p><strong>From:</strong> ${userEmail || 'Anonymous user'}</p>
+      <p><strong>Time:</strong> ${new Date().toISOString()}</p>
+      
+      <h3>Issue Description:</h3>
+      <p>${message.replace(/\n/g, '<br>')}</p>
+      
+      ${context ? `
+        <h3>Context:</h3>
+        <ul>
+          <li><strong>Page:</strong> ${context.page || 'Unknown'}</li>
+          <li><strong>User Agent:</strong> ${context.userAgent || 'Unknown'}</li>
+          <li><strong>Timestamp:</strong> ${context.timestamp || 'Unknown'}</li>
+        </ul>
+      ` : ''}
+    `;
+
+    // Send email
+    await transporter.sendMail({
+      from: process.env.BUG_REPORT_FROM || 'noreply@desk.ai',
+      to: process.env.BUG_REPORT_EMAIL || 'growzone.ai@gmail.com',
+      subject: `[Desk.ai] Bug Report - ${new Date().toLocaleDateString()}`,
+      html: emailHtml,
+      text: `Bug Report\n\nFrom: ${userEmail || 'Anonymous'}\nTime: ${new Date().toISOString()}\n\nIssue:\n${message}\n\nContext: ${JSON.stringify(context, null, 2)}`
+    });
+
+    console.log('Bug report email sent successfully');
+
+    res.status(200).json({ 
+      ok: true,
+      message: 'Bug report sent successfully'
+    });
+
+  } catch (error) {
+    console.error('Error sending bug report:', error.message);
+    res.status(500).json({ 
+      ok: false,
+      error: 'Failed to send bug report'
     });
   }
 });
