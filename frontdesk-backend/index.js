@@ -3,7 +3,18 @@ const cors = require('cors');
 const nodemailer = require('nodemailer');
 require('dotenv').config();
 const { handleCustomerMessage, generateDailySummary } = require('./aiClient');
-const { upsertLeadFromMessage, getLeadsForBusiness, getLeadStats, getMetricsForPeriods, getAppointments, updateLeadFields } = require('./leadStore');
+const { upsertLeadFromMessage, getLeadsForBusiness, getLeadStats, getMetricsForPeriods, getAppointments: getLeadsAppointments, updateLeadFields } = require('./leadStore');
+const { 
+  getAppointments, 
+  getAppointmentById, 
+  createAppointment, 
+  updateAppointment 
+} = require('./appointmentsStore');
+const { 
+  createAppointmentEvent, 
+  updateAppointmentEvent,
+  isEnabled: isCalendarEnabled 
+} = require('./calendarClient');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -124,7 +135,7 @@ app.get('/api/summary', async (req, res) => {
     const metrics = getMetricsForPeriods(targetBusinessId);
     
     // Get appointments (qualified or scheduled leads)
-    const appointments = getAppointments(targetBusinessId);
+    const appointments = getLeadsAppointments(targetBusinessId);
     
     // Generate AI summary
     const aiSummary = await generateDailySummary({
@@ -289,6 +300,166 @@ app.post('/api/report-bug', async (req, res) => {
     res.status(500).json({ 
       ok: false,
       error: 'Failed to send bug report'
+    });
+  }
+});
+
+// ============================================================================
+// APPOINTMENTS API - Manage jobs/appointments
+// ============================================================================
+
+// GET /api/appointments - List appointments with optional filtering
+app.get('/api/appointments', (req, res) => {
+  const { status, urgency } = req.query;
+  
+  try {
+    const filters = {};
+    if (status) filters.status = status;
+    if (urgency) filters.urgency = urgency;
+    
+    const appointments = getAppointments(filters);
+    
+    res.status(200).json({ 
+      ok: true,
+      data: appointments,
+      count: appointments.length,
+      calendarEnabled: isCalendarEnabled()
+    });
+  } catch (error) {
+    console.error('Error fetching appointments:', error);
+    res.status(500).json({ 
+      ok: false,
+      error: 'Failed to fetch appointments'
+    });
+  }
+});
+
+// POST /api/appointments - Create new appointment with optional calendar sync
+app.post('/api/appointments', async (req, res) => {
+  const { 
+    customerPhone, 
+    issueSummary, 
+    zipCode, 
+    preferredTimeText,
+    scheduledStart,
+    scheduledEnd,
+    urgency,
+    sourceChannel,
+    internalNotes
+  } = req.body;
+  
+  // Validate required fields
+  if (!customerPhone || !issueSummary) {
+    return res.status(400).json({ 
+      ok: false,
+      error: 'customerPhone and issueSummary are required' 
+    });
+  }
+  
+  try {
+    // Create the appointment in our system
+    const appointment = createAppointment({
+      customerPhone,
+      issueSummary,
+      zipCode,
+      preferredTimeText,
+      scheduledStart,
+      scheduledEnd,
+      urgency,
+      sourceChannel,
+      internalNotes
+    });
+    
+    // Attempt to sync with Google Calendar if enabled and scheduled
+    let calendarSynced = false;
+    if (scheduledStart && isCalendarEnabled()) {
+      try {
+        const eventId = await createAppointmentEvent(appointment);
+        if (eventId) {
+          // Update appointment with the calendar eventId
+          updateAppointment(appointment.id, { eventId });
+          appointment.eventId = eventId;
+          calendarSynced = true;
+        }
+      } catch (calendarError) {
+        // Log but don't fail - calendar sync is optional
+        console.warn('⚠️  Failed to sync with calendar:', calendarError.message);
+      }
+    }
+    
+    res.status(201).json({ 
+      ok: true,
+      data: appointment,
+      calendarSynced,
+      message: calendarSynced 
+        ? 'Appointment created and synced to Google Calendar'
+        : 'Appointment created'
+    });
+  } catch (error) {
+    console.error('Error creating appointment:', error);
+    res.status(500).json({ 
+      ok: false,
+      error: error.message || 'Failed to create appointment'
+    });
+  }
+});
+
+// PATCH /api/appointments/:id - Update appointment with optional calendar sync
+app.patch('/api/appointments/:id', async (req, res) => {
+  const { id } = req.params;
+  const { status, scheduledStart, scheduledEnd, internalNotes } = req.body;
+  
+  if (!id) {
+    return res.status(400).json({ 
+      ok: false,
+      error: 'Appointment ID is required' 
+    });
+  }
+  
+  try {
+    // Build updates object with only provided fields
+    const updates = {};
+    if (status !== undefined) updates.status = status;
+    if (scheduledStart !== undefined) updates.scheduledStart = scheduledStart;
+    if (scheduledEnd !== undefined) updates.scheduledEnd = scheduledEnd;
+    if (internalNotes !== undefined) updates.internalNotes = internalNotes;
+    
+    // Update in our system
+    const appointment = updateAppointment(id, updates);
+    
+    // Attempt to sync with Google Calendar if enabled and has eventId
+    let calendarSynced = false;
+    if (appointment.eventId && isCalendarEnabled()) {
+      try {
+        await updateAppointmentEvent(appointment);
+        calendarSynced = true;
+      } catch (calendarError) {
+        // Log but don't fail - calendar sync is optional
+        console.warn('⚠️  Failed to sync update with calendar:', calendarError.message);
+      }
+    }
+    
+    res.status(200).json({ 
+      ok: true,
+      data: appointment,
+      calendarSynced,
+      message: calendarSynced 
+        ? 'Appointment updated and synced to Google Calendar'
+        : 'Appointment updated'
+    });
+  } catch (error) {
+    console.error('Error updating appointment:', error);
+    
+    if (error.message.includes('not found')) {
+      return res.status(404).json({ 
+        ok: false,
+        error: error.message
+      });
+    }
+    
+    res.status(500).json({ 
+      ok: false,
+      error: error.message || 'Failed to update appointment'
     });
   }
 });

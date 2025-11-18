@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { BACKEND_URL, DEFAULT_BUSINESS_ID } from '../lib/config'
 import BugReportModal from '../components/demo/BugReportModal'
+import ScheduleAppointmentModal from '../components/demo/ScheduleAppointmentModal'
 
 export default function DemoChat() {
   const [customerPhone, setCustomerPhone] = useState('')
@@ -11,6 +12,7 @@ export default function DemoChat() {
   const [error, setError] = useState(null)
   const [lastResponse, setLastResponse] = useState(null)
   const [isBugModalOpen, setIsBugModalOpen] = useState(false)
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false)
 
   const handleSendMessage = async (e) => {
     e.preventDefault()
@@ -270,6 +272,35 @@ export default function DemoChat() {
                       <p className="text-sm text-gray-700 italic bg-blue-50 p-3 rounded-lg border border-blue-100">{lastResponse.internal_notes}</p>
                     </div>
                   )}
+                  
+                  {/* Schedule Job Card - show when ready_to_book */}
+                  {lastResponse.booking_intent === 'ready_to_book' && (
+                    <div className="pt-4 border-t border-gray-200">
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div className="flex items-start">
+                          <div className="flex-shrink-0">
+                            <svg className="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <div className="ml-3 flex-1">
+                            <h3 className="text-sm font-semibold text-green-900 mb-1">
+                              Ready to schedule this job?
+                            </h3>
+                            <p className="text-xs text-green-800 mb-3">
+                              All required information collected. Click below to add this job to your schedule.
+                            </p>
+                            <button
+                              onClick={() => setIsScheduleModalOpen(true)}
+                              className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors shadow-sm"
+                            >
+                              Schedule this job
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -300,6 +331,22 @@ export default function DemoChat() {
       </div>
 
       <BugReportModal isOpen={isBugModalOpen} onClose={() => setIsBugModalOpen(false)} />
+      
+      <ScheduleAppointmentModal
+        isOpen={isScheduleModalOpen}
+        onClose={() => setIsScheduleModalOpen(false)}
+        defaultData={{
+          customerPhone: customerPhone,
+          issueSummary: lastResponse?.collected_data?.issue_summary,
+          zipCode: lastResponse?.collected_data?.zip_code,
+          preferredTimeText: lastResponse?.collected_data?.preferred_time,
+          urgency: lastResponse?.collected_data?.urgency
+        }}
+        onSuccess={(appointment) => {
+          console.log('Appointment created:', appointment);
+          setIsScheduleModalOpen(false);
+        }}
+      />
     </div>
   )
 }
