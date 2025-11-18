@@ -5,10 +5,10 @@ export default function PricingTeaser() {
     {
       name: 'Starter',
       price: '$29',
-      description: 'For solo operators',
+      description: 'For solo operators getting started',
       features: [
-        'Great for 1-2 techs',
-        'Lead dashboard',
+        'Lead inbox',
+        'AI chat',
         'Daily summaries',
         'Email support'
       ],
@@ -21,9 +21,9 @@ export default function PricingTeaser() {
       price: '$79',
       description: 'For growing crews',
       features: [
-        'Great for 3-10 techs',
-        'Full dashboard access',
-        'Team collaboration',
+        'Everything in Starter',
+        'Team access',
+        'Scheduling features',
         'Priority support',
         'Custom integrations'
       ],
@@ -37,13 +37,13 @@ export default function PricingTeaser() {
       description: 'For multi-location shops',
       features: [
         'Everything in Pro',
-        'Multiple locations',
-        'Custom setup and support',
-        'Volume-based pricing',
+        'Custom setup',
+        'Priority support',
+        'Volume pricing',
         'Dedicated onboarding'
       ],
       cta: 'Contact sales',
-      ctaLink: 'mailto:hello@desk.ai',
+      ctaLink: 'mailto:growzone.ai@gmail.com',
       popular: false
     }
   ];
@@ -56,7 +56,7 @@ export default function PricingTeaser() {
             Simple monthly pricing. No long-term contracts.
           </h2>
           <p className="text-xl text-gray-600">
-            Start free while we're in beta. Cancel anytime.
+            Start free during beta. Cancel anytime.
           </p>
         </div>
         
@@ -153,7 +153,7 @@ export default function PricingTeaser() {
             Need a custom plan for enterprise or franchises?
           </p>
           <a 
-            href="mailto:hello@desk.ai"
+            href="mailto:growzone.ai@gmail.com"
             className="inline-flex items-center text-blue-600 hover:text-blue-700 font-semibold"
           >
             Contact us for custom pricing
