@@ -4,43 +4,46 @@ export default function PricingTeaser() {
   const tiers = [
     {
       name: 'Starter',
-      price: '$79',
+      price: '$29',
       description: 'For solo operators',
       features: [
-        'Up to 100 conversations/month',
+        'Great for 1-2 techs',
         'Lead dashboard',
         'Daily summaries',
         'Email support'
       ],
-      cta: 'Start free trial',
+      cta: 'Start free',
+      ctaLink: '/demo-chat',
       popular: false
     },
     {
       name: 'Pro',
-      price: '$149',
+      price: '$79',
       description: 'For growing crews',
       features: [
-        'Unlimited conversations',
+        'Great for 3-10 techs',
         'Full dashboard access',
-        'Priority support',
         'Team collaboration',
+        'Priority support',
         'Custom integrations'
       ],
-      cta: 'Start free trial',
+      cta: 'Start free',
+      ctaLink: '/demo-chat',
       popular: true
     },
     {
       name: 'Team',
-      price: '$249',
+      price: 'Let\'s talk',
       description: 'For multi-location shops',
       features: [
         'Everything in Pro',
         'Multiple locations',
-        'Advanced analytics',
-        'Dedicated account manager',
-        'Custom AI training'
+        'Custom setup and support',
+        'Volume-based pricing',
+        'Dedicated onboarding'
       ],
       cta: 'Contact sales',
+      ctaLink: 'mailto:hello@desk.ai',
       popular: false
     }
   ];
@@ -50,10 +53,10 @@ export default function PricingTeaser() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-            Simple monthly pricing. Cancel anytime.
+            Simple monthly pricing. No long-term contracts.
           </h2>
           <p className="text-xl text-gray-600">
-            Start with a 14-day free trial. No credit card required.
+            Start free while we're in beta. Cancel anytime.
           </p>
         </div>
         
@@ -82,13 +85,21 @@ export default function PricingTeaser() {
                 <p className={`text-sm mb-4 ${tier.popular ? 'text-blue-100' : 'text-gray-600'}`}>
                   {tier.description}
                 </p>
-                <div className="flex items-baseline justify-center">
-                  <span className={`text-5xl font-bold ${tier.popular ? 'text-white' : 'text-gray-900'}`}>
-                    {tier.price}
-                  </span>
-                  <span className={`ml-2 ${tier.popular ? 'text-blue-100' : 'text-gray-600'}`}>
-                    /month
-                  </span>
+                <div className="flex items-baseline justify-center min-h-[4rem]">
+                  {tier.price.startsWith('$') ? (
+                    <>
+                      <span className={`text-5xl font-bold ${tier.popular ? 'text-white' : 'text-gray-900'}`}>
+                        {tier.price}
+                      </span>
+                      <span className={`ml-2 ${tier.popular ? 'text-blue-100' : 'text-gray-600'}`}>
+                        /month
+                      </span>
+                    </>
+                  ) : (
+                    <span className={`text-3xl font-bold ${tier.popular ? 'text-white' : 'text-gray-900'}`}>
+                      {tier.price}
+                    </span>
+                  )}
                 </div>
               </div>
               
@@ -109,16 +120,29 @@ export default function PricingTeaser() {
                 ))}
               </ul>
               
-              <Link
-                href={tier.cta === 'Contact sales' ? '#contact' : '/demo-chat'}
-                className={`block w-full text-center px-6 py-3 rounded-lg font-semibold transition-all ${
-                  tier.popular
-                    ? 'bg-white text-blue-600 hover:bg-blue-50'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
-              >
-                {tier.cta}
-              </Link>
+              {tier.ctaLink.startsWith('mailto:') ? (
+                <a
+                  href={tier.ctaLink}
+                  className={`block w-full text-center px-6 py-3 rounded-lg font-semibold transition-all ${
+                    tier.popular
+                      ? 'bg-white text-blue-600 hover:bg-blue-50'
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
+                >
+                  {tier.cta}
+                </a>
+              ) : (
+                <Link
+                  href={tier.ctaLink}
+                  className={`block w-full text-center px-6 py-3 rounded-lg font-semibold transition-all ${
+                    tier.popular
+                      ? 'bg-white text-blue-600 hover:bg-blue-50'
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
+                >
+                  {tier.cta}
+                </Link>
+              )}
             </div>
           ))}
         </div>
@@ -128,15 +152,15 @@ export default function PricingTeaser() {
           <p className="text-gray-600 mb-6">
             Need a custom plan for enterprise or franchises?
           </p>
-          <Link 
-            href="#contact"
+          <a 
+            href="mailto:hello@desk.ai"
             className="inline-flex items-center text-blue-600 hover:text-blue-700 font-semibold"
           >
             Contact us for custom pricing
             <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
             </svg>
-          </Link>
+          </a>
         </div>
       </div>
     </div>
