@@ -1,14 +1,15 @@
+// EmptyState - Enhanced with softer background and better spacing
 export default function EmptyState({ icon, title, subtitle, action }) {
   return (
-    <div className="bg-white border border-slate-200 rounded-lg p-12 text-center shadow-sm">
-      <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-full mb-4">
-        <span className="text-3xl">{icon}</span>
+    <div className="bg-slate-50/50 border border-slate-200 rounded-xl p-16 text-center">
+      <div className="inline-flex items-center justify-center w-20 h-20 bg-white border-2 border-slate-200 rounded-2xl mb-5 shadow-sm">
+        {icon}
       </div>
-      <h3 className="text-lg font-medium text-slate-900 mb-2">{title}</h3>
-      <p className="text-sm text-slate-500 max-w-md mx-auto">
+      <h3 className="text-xl font-semibold text-slate-900 mb-3">{title}</h3>
+      <p className="text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
         {subtitle}
       </p>
-      {action && <div className="mt-6">{action}</div>}
+      {action && <div className="mt-8">{action}</div>}
     </div>
   );
 }

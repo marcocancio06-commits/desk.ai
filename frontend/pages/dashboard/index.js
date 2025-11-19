@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import Layout from './components/Layout';
-import PageHeader from '../../components/ui/PageHeader';
-import StatCard from '../../components/ui/StatCard';
+import MetricCard from '../../components/ui/StatCard';
 import EmptyState from '../../components/ui/EmptyState';
+import QuickActionCard from '../../components/ui/QuickActionCard';
 import LeadTable from './components/LeadTable';
 import { BACKEND_URL, DEFAULT_BUSINESS_ID } from '../../lib/config';
 
@@ -64,9 +64,18 @@ export default function Dashboard() {
   if (error) {
     return (
       <Layout>
-        <PageHeader title="Dashboard" subtitle="Overview of your business activity" />
+        <div className="bg-gradient-to-r from-blue-50 via-white to-blue-50 -m-8 p-8 mb-8">
+          <div className="max-w-7xl mx-auto">
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">Dashboard</h1>
+            <p className="text-slate-600">Overview of your business activity</p>
+          </div>
+        </div>
         <EmptyState
-          icon="⚠️"
+          icon={
+            <svg className="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          }
           title="Failed to load dashboard"
           subtitle={`${error}. Make sure the backend server is running on ${BACKEND_URL}`}
         />
@@ -76,60 +85,115 @@ export default function Dashboard() {
   
   return (
     <Layout>
-      <PageHeader title="Dashboard" subtitle="Overview of your business activity" />
+      {/* Gradient Header */}
+      <div className="bg-gradient-to-r from-blue-50 via-white to-blue-50 -m-8 p-8 mb-8 border-b border-slate-200">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900 mb-2">Dashboard</h1>
+              <p className="text-slate-600">Overview of your business activity</p>
+            </div>
+            <div className="hidden md:flex items-center text-sm text-slate-500 space-x-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span className="animate-pulse">
+                {new Date().toLocaleDateString('en-US', { 
+                  weekday: 'long',
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                })}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
       
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatCard
+      {/* Stats Grid - Responsive: 1 col mobile → 2 col tablet → 3 col desktop → 4 col wide */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-10">
+        <MetricCard
           title="New Leads Today"
           value={todayLeads.length}
           subtitle={`${leads.length} total leads`}
-          icon="📈"
+          icon={
+            <svg className="w-7 h-7 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            </svg>
+          }
           color="blue"
         />
-        <StatCard
+        <MetricCard
           title="Collecting Info"
           value={collectingInfo}
           subtitle="Gathering details"
-          icon="💬"
+          icon={
+            <svg className="w-7 h-7 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+          }
           color="yellow"
         />
-        <StatCard
+        <MetricCard
           title="Qualified"
           value={qualified}
           subtitle="Ready to schedule"
-          icon="✅"
+          icon={
+            <svg className="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          }
           color="green"
         />
-        <StatCard
+        <MetricCard
           title="Scheduled"
           value={scheduled}
           subtitle="Booked appointments"
-          icon="📅"
+          icon={
+            <svg className="w-7 h-7 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          }
           color="purple"
         />
       </div>
       
+      {/* Section Divider */}
+      <div className="border-t border-slate-200 mb-8"></div>
+      
       {/* Recent Activity */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-slate-900">Recent Activity</h2>
-          <a href="/dashboard/leads" className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors">
-            View all →
+      <div className="mb-10">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900 mb-1">Recent Activity</h2>
+            <p className="text-sm text-slate-500">Latest customer interactions</p>
+          </div>
+          <a href="/dashboard/leads" className="text-sm text-blue-600 hover:text-blue-700 font-semibold transition-colors flex items-center">
+            View all
+            <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
           </a>
         </div>
         {recentLeads.length > 0 ? (
           <LeadTable leads={recentLeads} />
         ) : (
           <EmptyState
-            icon="📭"
+            icon={
+              <svg className="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+              </svg>
+            }
             title="No leads yet"
-            subtitle="When customers contact you, they'll appear here"
+            subtitle="Use the demo chat to generate your first lead"
             action={
               <a
                 href="/demo-chat"
-                className="inline-block px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
+                className="inline-flex items-center px-6 py-3 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
               >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
                 Try Demo Chat
               </a>
             }
@@ -137,40 +201,47 @@ export default function Dashboard() {
         )}
       </div>
       
+      {/* Section Divider */}
+      <div className="border-t border-slate-200 mb-8"></div>
+      
       {/* Quick Actions */}
       <div>
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <a
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold text-slate-900 mb-1">Quick Actions</h2>
+          <p className="text-sm text-slate-500">Jump to common tasks</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <QuickActionCard
             href="/dashboard/leads"
-            className="flex items-center p-5 bg-white border border-slate-200 rounded-lg hover:border-blue-400 hover:shadow-md transition-all"
-          >
-            <span className="text-2xl mr-3">👥</span>
-            <div>
-              <div className="font-medium text-slate-900">View All Leads</div>
-              <div className="text-sm text-slate-500 mt-0.5">Manage customer inquiries</div>
-            </div>
-          </a>
-          <a
+            icon={
+              <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            }
+            title="View All Leads"
+            subtitle="Manage customer inquiries"
+          />
+          <QuickActionCard
             href="/dashboard/calendar"
-            className="flex items-center p-5 bg-white border border-slate-200 rounded-lg hover:border-blue-400 hover:shadow-md transition-all"
-          >
-            <span className="text-2xl mr-3">📅</span>
-            <div>
-              <div className="font-medium text-slate-900">Check Calendar</div>
-              <div className="text-sm text-slate-500 mt-0.5">View scheduled appointments</div>
-            </div>
-          </a>
-          <a
+            icon={
+              <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            }
+            title="Check Calendar"
+            subtitle="View scheduled appointments"
+          />
+          <QuickActionCard
             href="/dashboard/settings"
-            className="flex items-center p-5 bg-white border border-slate-200 rounded-lg hover:border-blue-400 hover:shadow-md transition-all"
-          >
-            <span className="text-2xl mr-3">⚙️</span>
-            <div>
-              <div className="font-medium text-slate-900">Settings</div>
-              <div className="text-sm text-slate-500 mt-0.5">Configure your business</div>
-            </div>
-          </a>
+            icon={
+              <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            }
+            title="Settings"
+            subtitle="Configure your business"
+          />
         </div>
       </div>
     </Layout>

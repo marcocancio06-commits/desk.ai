@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import Layout from './components/Layout';
-import PageHeader from '../../components/ui/PageHeader';
 import EmptyState from '../../components/ui/EmptyState';
 import LeadTable from './components/LeadTable';
 import LeadDetailPanel from '../../components/dashboard/LeadDetailPanel';
@@ -94,9 +93,18 @@ export default function Leads() {
   if (error) {
     return (
       <Layout>
-        <PageHeader title="Leads" subtitle="Manage customer inquiries" />
+        <div className="bg-gradient-to-r from-blue-50 via-white to-blue-50 -m-8 p-8 mb-8">
+          <div className="max-w-7xl mx-auto">
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">Leads</h1>
+            <p className="text-slate-600">Manage customer inquiries</p>
+          </div>
+        </div>
         <EmptyState
-          icon="⚠️"
+          icon={
+            <svg className="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          }
           title="Failed to load leads"
           subtitle={`${error}. Make sure the backend server is running on ${BACKEND_URL}`}
         />
@@ -106,49 +114,95 @@ export default function Leads() {
   
   return (
     <Layout>
-      <PageHeader title="Leads" subtitle="Manage customer inquiries" />
+      {/* Gradient Header */}
+      <div className="bg-gradient-to-r from-blue-50 via-white to-blue-50 -m-8 p-8 mb-8 border-b border-slate-200">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">Leads</h1>
+          <p className="text-slate-600">Manage customer inquiries and pipeline</p>
+        </div>
+      </div>
       
-      {/* Pill Filter Tabs */}
-      <div className="mb-6">
-        <div className="flex flex-wrap gap-2">
-          {filters.map(({ key, label, count }) => (
-            <button
-              key={key}
-              onClick={() => setFilter(key)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                filter === key
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-white text-slate-700 border border-slate-200 hover:border-blue-400 hover:bg-blue-50'
-              }`}
-            >
-              {label}
-              <span className={`ml-1.5 ${filter === key ? 'text-blue-100' : 'text-slate-500'}`}>
-                ({count})
-              </span>
-            </button>
-          ))}
+      {/* Enhanced Pill Filter Tabs with Status Indicators */}
+      <div className="mb-8">
+        <div className="flex flex-wrap gap-3">
+          {filters.map(({ key, label, count }) => {
+            const colorMap = {
+              all: 'text-slate-700',
+              new: 'text-slate-700',
+              collecting_info: 'text-yellow-700',
+              qualified: 'text-green-700',
+              scheduled: 'text-blue-700',
+              closed_won: 'text-violet-700'
+            };
+            
+            const bgColorMap = {
+              all: 'bg-slate-100',
+              new: 'bg-slate-100',
+              collecting_info: 'bg-yellow-100',
+              qualified: 'bg-green-100',
+              scheduled: 'bg-blue-100',
+              closed_won: 'bg-violet-100'
+            };
+            
+            return (
+              <button
+                key={key}
+                onClick={() => setFilter(key)}
+                className={`group px-5 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                  filter === key
+                    ? 'bg-blue-600 text-white shadow-lg scale-105'
+                    : 'bg-white text-slate-700 border-2 border-slate-200 hover:border-blue-400 hover:shadow-md hover:scale-105'
+                }`}
+              >
+                <div className="flex items-center space-x-2">
+                  <span>{label}</span>
+                  <span className={`inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full text-xs font-bold ${
+                    filter === key 
+                      ? 'bg-white/20 text-white' 
+                      : `${bgColorMap[key]} ${colorMap[key]}`
+                  }`}>
+                    {count}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
       
       {/* Leads Table */}
       {filteredLeads.length === 0 ? (
         <EmptyState
-          icon="📭"
+          icon={
+            <svg className="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+            </svg>
+          }
           title="No leads found"
           subtitle={
             filter === 'all' 
-              ? 'No leads have been generated yet. When customers contact you, they\'ll appear here.' 
+              ? 'No leads have been generated yet. Use the demo chat to create your first lead.' 
               : `No leads with status "${filter.replace('_', ' ')}".`
           }
           action={
             filter === 'all' ? (
               <a
                 href="/demo-chat"
-                className="inline-block px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
+                className="inline-flex items-center px-6 py-3 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
               >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
                 Try Demo Chat
               </a>
-            ) : null
+            ) : (
+              <button
+                onClick={() => setFilter('all')}
+                className="inline-flex items-center px-6 py-3 bg-slate-600 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
+              >
+                View all leads
+              </button>
+            )
           }
         />
       ) : (
