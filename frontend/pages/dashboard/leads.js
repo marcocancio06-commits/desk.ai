@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import Layout from './components/Layout';
+import PageHeader from '../../components/dashboard/PageHeader';
+import EmptyState from '../../components/dashboard/EmptyState';
 import LeadTable from './components/LeadTable';
 import LeadDetailPanel from '../../components/dashboard/LeadDetailPanel';
 import { BACKEND_URL, DEFAULT_BUSINESS_ID } from '../../lib/config';
@@ -70,9 +72,18 @@ export default function Leads() {
     closed_lost: leads.filter(l => l.status === 'closed_lost').length,
   };
   
+  const filters = [
+    { key: 'all', label: 'All Leads', count: statusCounts.all },
+    { key: 'new', label: 'New', count: statusCounts.new },
+    { key: 'collecting_info', label: 'Collecting Info', count: statusCounts.collecting_info },
+    { key: 'qualified', label: 'Qualified', count: statusCounts.qualified },
+    { key: 'scheduled', label: 'Scheduled', count: statusCounts.scheduled },
+    { key: 'closed_won', label: 'Closed Won', count: statusCounts.closed_won },
+  ];
+  
   if (loading) {
     return (
-      <Layout title="Leads" subtitle="Manage customer inquiries">
+      <Layout>
         <div className="flex items-center justify-center h-64">
           <div className="text-gray-500">Loading leads...</div>
         </div>
@@ -82,121 +93,66 @@ export default function Leads() {
   
   if (error) {
     return (
-      <Layout title="Leads" subtitle="Manage customer inquiries">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="text-red-500 text-6xl mb-4">⚠️</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Failed to load leads</h3>
-            <p className="text-gray-500 mb-4">{error}</p>
-            <p className="text-sm text-gray-400">
-              Make sure the backend server is running on {BACKEND_URL}
-            </p>
-          </div>
+      <Layout>
+        <PageHeader title="Leads" subtitle="Manage customer inquiries" />
+        <div className="mt-8">
+          <EmptyState
+            icon="⚠️"
+            title="Failed to load leads"
+            subtitle={`${error}. Make sure the backend server is running on ${BACKEND_URL}`}
+          />
         </div>
       </Layout>
     );
   }
   
   return (
-    <Layout title="Leads" subtitle="Manage customer inquiries">
-      {/* Filter Tabs */}
-      <div className="bg-white rounded-lg shadow mb-6">
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8 px-6" aria-label="Tabs">
+    <Layout>
+      <PageHeader title="Leads" subtitle="Manage customer inquiries" />
+      
+      {/* Pill Filter Tabs */}
+      <div className="mt-6 mb-6">
+        <div className="flex flex-wrap gap-2">
+          {filters.map(({ key, label, count }) => (
             <button
-              onClick={() => setFilter('all')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                filter === 'all'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              key={key}
+              onClick={() => setFilter(key)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                filter === key
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:border-blue-400 hover:bg-blue-50'
               }`}
             >
-              All Leads
-              <span className="ml-2 py-0.5 px-2 rounded-full text-xs bg-gray-100">
-                {statusCounts.all}
+              {label}
+              <span className={`ml-1.5 ${filter === key ? 'text-blue-100' : 'text-gray-500'}`}>
+                ({count})
               </span>
             </button>
-            <button
-              onClick={() => setFilter('new')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                filter === 'new'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              New
-              <span className="ml-2 py-0.5 px-2 rounded-full text-xs bg-blue-100 text-blue-800">
-                {statusCounts.new}
-              </span>
-            </button>
-            <button
-              onClick={() => setFilter('collecting_info')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                filter === 'collecting_info'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Collecting Info
-              <span className="ml-2 py-0.5 px-2 rounded-full text-xs bg-yellow-100 text-yellow-800">
-                {statusCounts.collecting_info}
-              </span>
-            </button>
-            <button
-              onClick={() => setFilter('qualified')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                filter === 'qualified'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Qualified
-              <span className="ml-2 py-0.5 px-2 rounded-full text-xs bg-green-100 text-green-800">
-                {statusCounts.qualified}
-              </span>
-            </button>
-            <button
-              onClick={() => setFilter('scheduled')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                filter === 'scheduled'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Scheduled
-              <span className="ml-2 py-0.5 px-2 rounded-full text-xs bg-purple-100 text-purple-800">
-                {statusCounts.scheduled}
-              </span>
-            </button>
-            <button
-              onClick={() => setFilter('closed_won')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                filter === 'closed_won'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Closed Won
-              <span className="ml-2 py-0.5 px-2 rounded-full text-xs bg-green-100 text-green-800">
-                {statusCounts.closed_won}
-              </span>
-            </button>
-          </nav>
+          ))}
         </div>
       </div>
       
       {/* Leads Table */}
       {filteredLeads.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-12 text-center">
-          <div className="text-gray-400 text-6xl mb-4">📭</div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No leads found</h3>
-          <p className="text-gray-500">
-            {filter === 'all' 
-              ? 'No leads have been generated yet.'
+        <EmptyState
+          icon="📭"
+          title="No leads found"
+          subtitle={
+            filter === 'all' 
+              ? 'No leads have been generated yet. When customers contact you, they\'ll appear here.' 
               : `No leads with status "${filter.replace('_', ' ')}".`
-            }
-          </p>
-        </div>
+          }
+          action={
+            filter === 'all' ? (
+              <a
+                href="/demo-chat"
+                className="inline-block mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Try Demo Chat
+              </a>
+            ) : null
+          }
+        />
       ) : (
         <LeadTable leads={filteredLeads} onLeadClick={handleLeadClick} />
       )}

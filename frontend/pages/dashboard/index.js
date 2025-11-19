@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import Layout from './components/Layout';
+import PageHeader from '../../components/dashboard/PageHeader';
+import EmptyState from '../../components/dashboard/EmptyState';
 import StatCard from './components/StatCard';
 import LeadTable from './components/LeadTable';
 import { BACKEND_URL, DEFAULT_BUSINESS_ID } from '../../lib/config';
@@ -51,7 +53,7 @@ export default function Dashboard() {
   
   if (loading) {
     return (
-      <Layout title="Dashboard" subtitle="Overview of your business activity">
+      <Layout>
         <div className="flex items-center justify-center h-64">
           <div className="text-gray-500">Loading dashboard...</div>
         </div>
@@ -61,25 +63,25 @@ export default function Dashboard() {
   
   if (error) {
     return (
-      <Layout title="Dashboard" subtitle="Overview of your business activity">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="text-red-500 text-6xl mb-4">⚠️</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Failed to load dashboard</h3>
-            <p className="text-gray-500 mb-4">{error}</p>
-            <p className="text-sm text-gray-400">
-              Make sure the backend server is running on {BACKEND_URL}
-            </p>
-          </div>
+      <Layout>
+        <PageHeader title="Dashboard" subtitle="Overview of your business activity" />
+        <div className="mt-8">
+          <EmptyState
+            icon="⚠️"
+            title="Failed to load dashboard"
+            subtitle={`${error}. Make sure the backend server is running on ${BACKEND_URL}`}
+          />
         </div>
       </Layout>
     );
   }
   
   return (
-    <Layout title="Dashboard" subtitle="Overview of your business activity">
+    <Layout>
+      <PageHeader title="Dashboard" subtitle="Overview of your business activity" />
+      
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-8 mb-8">
         <StatCard
           title="New Leads Today"
           value={todayLeads.length}
@@ -105,54 +107,70 @@ export default function Dashboard() {
           title="Scheduled"
           value={scheduled}
           subtitle="Booked appointments"
-          icon="�"
+          icon="📅"
           color="purple"
         />
       </div>
       
       {/* Recent Activity */}
-      <div className="mb-6">
+      <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Recent Activity</h2>
+          <h2 className="text-xl font-semibold text-gray-900">Recent Activity</h2>
           <a href="/dashboard/leads" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
             View all →
           </a>
         </div>
-        <LeadTable leads={recentLeads} />
+        {recentLeads.length > 0 ? (
+          <LeadTable leads={recentLeads} />
+        ) : (
+          <EmptyState
+            icon="📭"
+            title="No leads yet"
+            subtitle="When customers contact you, they'll appear here"
+            action={
+              <a
+                href="/demo-chat"
+                className="inline-block mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Try Demo Chat
+              </a>
+            }
+          />
+        )}
       </div>
       
       {/* Quick Actions */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <a
             href="/dashboard/leads"
-            className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors"
+            className="flex items-center p-5 bg-white border border-gray-200 rounded-lg hover:border-blue-400 hover:shadow-md transition-all"
           >
             <span className="text-2xl mr-3">👥</span>
             <div>
               <div className="font-medium text-gray-900">View All Leads</div>
-              <div className="text-sm text-gray-500">Manage customer inquiries</div>
+              <div className="text-sm text-gray-500 mt-0.5">Manage customer inquiries</div>
             </div>
           </a>
           <a
             href="/dashboard/calendar"
-            className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors"
+            className="flex items-center p-5 bg-white border border-gray-200 rounded-lg hover:border-blue-400 hover:shadow-md transition-all"
           >
             <span className="text-2xl mr-3">📅</span>
             <div>
               <div className="font-medium text-gray-900">Check Calendar</div>
-              <div className="text-sm text-gray-500">View scheduled appointments</div>
+              <div className="text-sm text-gray-500 mt-0.5">View scheduled appointments</div>
             </div>
           </a>
           <a
             href="/dashboard/settings"
-            className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors"
+            className="flex items-center p-5 bg-white border border-gray-200 rounded-lg hover:border-blue-400 hover:shadow-md transition-all"
           >
             <span className="text-2xl mr-3">⚙️</span>
             <div>
               <div className="font-medium text-gray-900">Settings</div>
-              <div className="text-sm text-gray-500">Configure your business</div>
+              <div className="text-sm text-gray-500 mt-0.5">Configure your business</div>
             </div>
           </a>
         </div>

@@ -1,21 +1,7 @@
+import StatusBadge from '../../../components/dashboard/StatusBadge';
+import UrgencyBadge from '../../../components/dashboard/UrgencyBadge';
+
 export default function LeadTable({ leads, onLeadClick }) {
-  const getStatusColor = (status) => {
-    const colors = {
-      new: 'bg-blue-100 text-blue-800',
-      collecting_info: 'bg-yellow-100 text-yellow-800',
-      ready_to_book: 'bg-green-100 text-green-800',
-      booked: 'bg-purple-100 text-purple-800',
-      closed: 'bg-gray-100 text-gray-800',
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
-  };
-  
-  const formatStatus = (status) => {
-    return status.split('_').map(word => 
-      word.charAt(0).toUpperCase() + word.slice(1)
-    ).join(' ');
-  };
-  
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -33,7 +19,8 @@ export default function LeadTable({ leads, onLeadClick }) {
   
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
-      <div className="overflow-x-auto">
+      {/* Desktop Table View */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
@@ -81,9 +68,10 @@ export default function LeadTable({ leads, onLeadClick }) {
                   )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(lead.status)}`}>
-                    {formatStatus(lead.status)}
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <StatusBadge status={lead.status} size="sm" />
+                    {lead.urgency && <UrgencyBadge urgency={lead.urgency} size="sm" />}
+                  </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {formatDate(lead.createdAt)}
@@ -92,6 +80,34 @@ export default function LeadTable({ leads, onLeadClick }) {
             ))}
           </tbody>
         </table>
+      </div>
+      
+      {/* Mobile Card View */}
+      <div className="md:hidden divide-y divide-gray-200">
+        {leads.map((lead) => (
+          <div
+            key={lead.id}
+            onClick={() => onLeadClick && onLeadClick(lead.id)}
+            className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+          >
+            <div className="flex items-start justify-between mb-2">
+              <div>
+                <div className="text-sm font-medium text-gray-900">{lead.customerName || 'Unknown'}</div>
+                <div className="text-sm text-gray-500">{lead.phone}</div>
+              </div>
+              <div className="text-xs text-gray-500 whitespace-nowrap ml-2">
+                {formatDate(lead.createdAt)}
+              </div>
+            </div>
+            <div className="text-sm text-gray-600 mb-2 line-clamp-2">
+              {lead.issueSummary || lead.lastMessage || 'No details'}
+            </div>
+            <div className="flex items-center space-x-2">
+              <StatusBadge status={lead.status} size="sm" />
+              {lead.urgency && <UrgencyBadge urgency={lead.urgency} size="sm" />}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
