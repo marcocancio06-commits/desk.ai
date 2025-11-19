@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import Layout from './components/Layout';
-import PageHeader from '../../components/dashboard/PageHeader';
-import EmptyState from '../../components/dashboard/EmptyState';
-import StatusBadge from '../../components/dashboard/StatusBadge';
-import UrgencyBadge from '../../components/dashboard/UrgencyBadge';
+import PageHeader from '../../components/ui/PageHeader';
+import EmptyState from '../../components/ui/EmptyState';
+import StatusPill from '../../components/ui/StatusPill';
+import UrgencyBadge from '../../components/ui/UrgencyBadge';
 import { BACKEND_URL } from '../../lib/config';
 
 export default function Calendar() {
@@ -149,33 +149,31 @@ export default function Calendar() {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
-          <div className="text-gray-500">Loading appointments...</div>
+          <div className="inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
         </div>
       </Layout>
     );
   }
-
+  
   if (error) {
     return (
       <Layout>
         <PageHeader title="Appointments" subtitle="View and manage your scheduled jobs" />
-        <div className="mt-8">
-          <EmptyState
-            icon="⚠️"
-            title="Failed to load appointments"
-            subtitle={error}
-          />
-        </div>
+        <EmptyState
+          icon="⚠️"
+          title="Failed to load appointments"
+          subtitle={error}
+        />
       </Layout>
     );
   }
-
+  
   return (
     <Layout>
       <PageHeader title="Appointments" subtitle="View and manage your scheduled jobs" />
       
       {/* Pill Filter Tabs */}
-      <div className="mt-6 mb-6">
+      <div className="mb-6">
         <div className="flex flex-wrap gap-2">
           {filters.map(({ key, label, count }) => (
             <button
@@ -184,11 +182,11 @@ export default function Calendar() {
               className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
                 statusFilter === key
                   ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:border-blue-400 hover:bg-blue-50'
+                  : 'bg-white text-slate-700 border border-slate-200 hover:border-blue-400 hover:bg-blue-50'
               }`}
             >
               {label}
-              <span className={`ml-1.5 ${statusFilter === key ? 'text-blue-100' : 'text-gray-500'}`}>
+              <span className={`ml-1.5 ${statusFilter === key ? 'text-blue-100' : 'text-slate-500'}`}>
                 ({count})
               </span>
             </button>
@@ -210,14 +208,14 @@ export default function Calendar() {
             statusFilter !== 'all' ? (
               <button
                 onClick={() => setStatusFilter('all')}
-                className="inline-block mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="inline-block px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
               >
                 View all appointments
               </button>
             ) : (
               <a
                 href="/demo-chat"
-                className="inline-block mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="inline-block px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
               >
                 Try Demo Chat
               </a>
@@ -228,36 +226,34 @@ export default function Calendar() {
         <div className="space-y-8">
           {sortedDateKeys.map(dateKey => (
             <div key={dateKey}>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <span className="mr-2">📅</span>
-                {dateKey}
-                <span className="ml-2 text-sm font-normal text-gray-500">
-                  ({groupedAppointments[dateKey].length})
+              <div className="flex items-center mb-4">
+                <span className="inline-flex items-center px-3 py-1.5 bg-slate-100 text-slate-700 text-sm font-medium rounded-full">
+                  📅 {dateKey} · {groupedAppointments[dateKey].length}
                 </span>
-              </h3>
+              </div>
               <div className="space-y-3">
                 {groupedAppointments[dateKey].map(apt => (
                   <div 
                     key={apt.id}
-                    className="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow"
+                    className="bg-white border border-slate-200 rounded-lg p-5 hover:shadow-md transition-all shadow-sm"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-start space-x-3">
                           <div className="flex-1">
-                            <h4 className="text-base font-medium text-gray-900 mb-1">
+                            <h4 className="text-base font-medium text-slate-900 mb-2">
                               {apt.issueSummary}
                             </h4>
-                            <div className="flex items-center space-x-4 text-sm text-gray-600 mb-3">
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600 mb-3">
                               <span className="flex items-center">
-                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                                 </svg>
                                 {apt.customerPhone}
                               </span>
                               {apt.zipCode && (
                                 <span className="flex items-center">
-                                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                                   </svg>
@@ -266,7 +262,7 @@ export default function Calendar() {
                               )}
                               {apt.scheduledStart && (
                                 <span className="flex items-center font-medium text-blue-600">
-                                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                   </svg>
                                   {new Date(apt.scheduledStart).toLocaleTimeString('en-US', {
@@ -277,9 +273,9 @@ export default function Calendar() {
                                 </span>
                               )}
                             </div>
-                            <div className="flex items-center space-x-2">
-                              <StatusBadge status={apt.status} size="sm" />
-                              {apt.urgency && <UrgencyBadge urgency={apt.urgency} size="sm" />}
+                            <div className="flex items-center gap-2">
+                              <StatusPill status={apt.status} size="sm" />
+                              <UrgencyBadge urgency={apt.urgency} size="sm" />
                               {apt.eventId && (
                                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
                                   <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
@@ -297,7 +293,7 @@ export default function Calendar() {
                           value={apt.status}
                           onChange={(e) => handleStatusUpdate(apt.id, e.target.value)}
                           disabled={updatingId === apt.id}
-                          className="text-sm border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="text-sm border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <option value="new">New</option>
                           <option value="scheduled">Scheduled</option>

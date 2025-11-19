@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import Layout from './components/Layout';
-import PageHeader from '../../components/dashboard/PageHeader';
-import EmptyState from '../../components/dashboard/EmptyState';
-import StatCard from './components/StatCard';
+import PageHeader from '../../components/ui/PageHeader';
+import StatCard from '../../components/ui/StatCard';
+import EmptyState from '../../components/ui/EmptyState';
 import LeadTable from './components/LeadTable';
 import { BACKEND_URL, DEFAULT_BUSINESS_ID } from '../../lib/config';
 
@@ -55,7 +55,7 @@ export default function Dashboard() {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
-          <div className="text-gray-500">Loading dashboard...</div>
+          <div className="inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
         </div>
       </Layout>
     );
@@ -65,13 +65,11 @@ export default function Dashboard() {
     return (
       <Layout>
         <PageHeader title="Dashboard" subtitle="Overview of your business activity" />
-        <div className="mt-8">
-          <EmptyState
-            icon="⚠️"
-            title="Failed to load dashboard"
-            subtitle={`${error}. Make sure the backend server is running on ${BACKEND_URL}`}
-          />
-        </div>
+        <EmptyState
+          icon="⚠️"
+          title="Failed to load dashboard"
+          subtitle={`${error}. Make sure the backend server is running on ${BACKEND_URL}`}
+        />
       </Layout>
     );
   }
@@ -81,7 +79,7 @@ export default function Dashboard() {
       <PageHeader title="Dashboard" subtitle="Overview of your business activity" />
       
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-8 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatCard
           title="New Leads Today"
           value={todayLeads.length}
@@ -115,8 +113,8 @@ export default function Dashboard() {
       {/* Recent Activity */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">Recent Activity</h2>
-          <a href="/dashboard/leads" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+          <h2 className="text-lg font-semibold text-slate-900">Recent Activity</h2>
+          <a href="/dashboard/leads" className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors">
             View all →
           </a>
         </div>
@@ -130,7 +128,7 @@ export default function Dashboard() {
             action={
               <a
                 href="/demo-chat"
-                className="inline-block mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="inline-block px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
               >
                 Try Demo Chat
               </a>
@@ -141,36 +139,36 @@ export default function Dashboard() {
       
       {/* Quick Actions */}
       <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
+        <h2 className="text-lg font-semibold text-slate-900 mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <a
             href="/dashboard/leads"
-            className="flex items-center p-5 bg-white border border-gray-200 rounded-lg hover:border-blue-400 hover:shadow-md transition-all"
+            className="flex items-center p-5 bg-white border border-slate-200 rounded-lg hover:border-blue-400 hover:shadow-md transition-all"
           >
             <span className="text-2xl mr-3">👥</span>
             <div>
-              <div className="font-medium text-gray-900">View All Leads</div>
-              <div className="text-sm text-gray-500 mt-0.5">Manage customer inquiries</div>
+              <div className="font-medium text-slate-900">View All Leads</div>
+              <div className="text-sm text-slate-500 mt-0.5">Manage customer inquiries</div>
             </div>
           </a>
           <a
             href="/dashboard/calendar"
-            className="flex items-center p-5 bg-white border border-gray-200 rounded-lg hover:border-blue-400 hover:shadow-md transition-all"
+            className="flex items-center p-5 bg-white border border-slate-200 rounded-lg hover:border-blue-400 hover:shadow-md transition-all"
           >
             <span className="text-2xl mr-3">📅</span>
             <div>
-              <div className="font-medium text-gray-900">Check Calendar</div>
-              <div className="text-sm text-gray-500 mt-0.5">View scheduled appointments</div>
+              <div className="font-medium text-slate-900">Check Calendar</div>
+              <div className="text-sm text-slate-500 mt-0.5">View scheduled appointments</div>
             </div>
           </a>
           <a
             href="/dashboard/settings"
-            className="flex items-center p-5 bg-white border border-gray-200 rounded-lg hover:border-blue-400 hover:shadow-md transition-all"
+            className="flex items-center p-5 bg-white border border-slate-200 rounded-lg hover:border-blue-400 hover:shadow-md transition-all"
           >
             <span className="text-2xl mr-3">⚙️</span>
             <div>
-              <div className="font-medium text-gray-900">Settings</div>
-              <div className="text-sm text-gray-500 mt-0.5">Configure your business</div>
+              <div className="font-medium text-slate-900">Settings</div>
+              <div className="text-sm text-slate-500 mt-0.5">Configure your business</div>
             </div>
           </a>
         </div>

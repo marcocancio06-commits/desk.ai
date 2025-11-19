@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Layout from './components/Layout';
-import PageHeader from '../../components/dashboard/PageHeader';
-import EmptyState from '../../components/dashboard/EmptyState';
+import PageHeader from '../../components/ui/PageHeader';
+import EmptyState from '../../components/ui/EmptyState';
 import LeadTable from './components/LeadTable';
 import LeadDetailPanel from '../../components/dashboard/LeadDetailPanel';
 import { BACKEND_URL, DEFAULT_BUSINESS_ID } from '../../lib/config';
@@ -85,7 +85,7 @@ export default function Leads() {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
-          <div className="text-gray-500">Loading leads...</div>
+          <div className="inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
         </div>
       </Layout>
     );
@@ -95,13 +95,11 @@ export default function Leads() {
     return (
       <Layout>
         <PageHeader title="Leads" subtitle="Manage customer inquiries" />
-        <div className="mt-8">
-          <EmptyState
-            icon="⚠️"
-            title="Failed to load leads"
-            subtitle={`${error}. Make sure the backend server is running on ${BACKEND_URL}`}
-          />
-        </div>
+        <EmptyState
+          icon="⚠️"
+          title="Failed to load leads"
+          subtitle={`${error}. Make sure the backend server is running on ${BACKEND_URL}`}
+        />
       </Layout>
     );
   }
@@ -111,7 +109,7 @@ export default function Leads() {
       <PageHeader title="Leads" subtitle="Manage customer inquiries" />
       
       {/* Pill Filter Tabs */}
-      <div className="mt-6 mb-6">
+      <div className="mb-6">
         <div className="flex flex-wrap gap-2">
           {filters.map(({ key, label, count }) => (
             <button
@@ -120,11 +118,11 @@ export default function Leads() {
               className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
                 filter === key
                   ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:border-blue-400 hover:bg-blue-50'
+                  : 'bg-white text-slate-700 border border-slate-200 hover:border-blue-400 hover:bg-blue-50'
               }`}
             >
               {label}
-              <span className={`ml-1.5 ${filter === key ? 'text-blue-100' : 'text-gray-500'}`}>
+              <span className={`ml-1.5 ${filter === key ? 'text-blue-100' : 'text-slate-500'}`}>
                 ({count})
               </span>
             </button>
@@ -146,7 +144,7 @@ export default function Leads() {
             filter === 'all' ? (
               <a
                 href="/demo-chat"
-                className="inline-block mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="inline-block px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
               >
                 Try Demo Chat
               </a>

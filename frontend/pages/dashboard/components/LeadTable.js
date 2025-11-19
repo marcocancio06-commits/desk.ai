@@ -1,5 +1,5 @@
-import StatusBadge from '../../../components/dashboard/StatusBadge';
-import UrgencyBadge from '../../../components/dashboard/UrgencyBadge';
+import StatusPill from '../../../components/ui/StatusPill';
+import UrgencyBadge from '../../../components/ui/UrgencyBadge';
 
 export default function LeadTable({ leads, onLeadClick }) {
   const formatDate = (dateString) => {
@@ -18,62 +18,62 @@ export default function LeadTable({ leads, onLeadClick }) {
   };
   
   return (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
+    <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
       {/* Desktop Table View */}
       <div className="hidden md:block overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+        <table className="min-w-full divide-y divide-slate-200">
+          <thead className="bg-slate-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Customer
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Phone
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Issue
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Status
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Created
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white divide-y divide-slate-200">
             {leads.map((lead) => (
               <tr 
                 key={lead.id} 
                 onClick={() => onLeadClick && onLeadClick(lead.id)}
-                className="hover:bg-gray-50 cursor-pointer transition-colors"
+                className="hover:bg-slate-50 cursor-pointer transition-colors"
               >
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">{lead.customerName || 'Unknown'}</div>
+                  <div className="text-sm font-medium text-slate-900">{lead.customerName || 'Unknown'}</div>
                   {lead.zipCode && (
-                    <div className="text-sm text-gray-500">{lead.zipCode}</div>
+                    <div className="text-sm text-slate-500">{lead.zipCode}</div>
                   )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{lead.phone}</div>
+                  <div className="text-sm text-slate-900">{lead.phone}</div>
                 </td>
                 <td className="px-6 py-4">
-                  <div className="text-sm text-gray-900 max-w-xs truncate">
+                  <div className="text-sm text-slate-900 max-w-xs truncate">
                     {lead.issueSummary || lead.lastMessage || 'No details'}
                   </div>
                   {lead.preferredTime && (
-                    <div className="text-xs text-gray-500 mt-1">
+                    <div className="text-xs text-slate-500 mt-1">
                       Preferred: {lead.preferredTime}
                     </div>
                   )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center space-x-2">
-                    <StatusBadge status={lead.status} size="sm" />
-                    {lead.urgency && <UrgencyBadge urgency={lead.urgency} size="sm" />}
+                  <div className="flex items-center gap-2">
+                    <StatusPill status={lead.status} size="sm" />
+                    <UrgencyBadge urgency={lead.urgency} size="sm" />
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                   {formatDate(lead.createdAt)}
                 </td>
               </tr>
@@ -83,28 +83,28 @@ export default function LeadTable({ leads, onLeadClick }) {
       </div>
       
       {/* Mobile Card View */}
-      <div className="md:hidden divide-y divide-gray-200">
+      <div className="md:hidden divide-y divide-slate-200">
         {leads.map((lead) => (
           <div
             key={lead.id}
             onClick={() => onLeadClick && onLeadClick(lead.id)}
-            className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+            className="p-4 hover:bg-slate-50 cursor-pointer transition-colors"
           >
             <div className="flex items-start justify-between mb-2">
               <div>
-                <div className="text-sm font-medium text-gray-900">{lead.customerName || 'Unknown'}</div>
-                <div className="text-sm text-gray-500">{lead.phone}</div>
+                <div className="text-sm font-medium text-slate-900">{lead.customerName || 'Unknown'}</div>
+                <div className="text-sm text-slate-500">{lead.phone}</div>
               </div>
-              <div className="text-xs text-gray-500 whitespace-nowrap ml-2">
+              <div className="text-xs text-slate-500 whitespace-nowrap ml-2">
                 {formatDate(lead.createdAt)}
               </div>
             </div>
-            <div className="text-sm text-gray-600 mb-2 line-clamp-2">
+            <div className="text-sm text-slate-600 mb-2 line-clamp-2">
               {lead.issueSummary || lead.lastMessage || 'No details'}
             </div>
-            <div className="flex items-center space-x-2">
-              <StatusBadge status={lead.status} size="sm" />
-              {lead.urgency && <UrgencyBadge urgency={lead.urgency} size="sm" />}
+            <div className="flex items-center gap-2">
+              <StatusPill status={lead.status} size="sm" />
+              <UrgencyBadge urgency={lead.urgency} size="sm" />
             </div>
           </div>
         ))}
