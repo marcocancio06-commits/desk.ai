@@ -108,12 +108,12 @@ app.post('/api/message', async (req, res) => {
 
 // Get leads for a business - Now from database
 app.get('/api/leads', async (req, res) => {
-  const { businessId, status, urgency, limit } = req.query;
+  let { businessId, status, urgency, limit } = req.query;
   
+  // Default to demo business if not provided (for demo/development mode)
   if (!businessId) {
-    return res.status(400).json({ 
-      error: 'businessId query parameter is required' 
-    });
+    console.warn('⚠️  No businessId provided to /api/leads, defaulting to demo-business-001');
+    businessId = 'demo-business-001';
   }
   
   try {
@@ -515,13 +515,12 @@ app.post('/api/report-bug', async (req, res) => {
 
 // GET /api/appointments - List appointments with optional filtering
 app.get('/api/appointments', async (req, res) => {
-  const { businessId, status, urgency, startDate, endDate } = req.query;
+  let { businessId, status, urgency, startDate, endDate } = req.query;
   
+  // Default to demo business if not provided (for demo/development mode)
   if (!businessId) {
-    return res.status(400).json({
-      ok: false,
-      error: 'businessId query parameter is required'
-    });
+    console.warn('⚠️  No businessId provided to /api/appointments, defaulting to demo-business-001');
+    businessId = 'demo-business-001';
   }
   
   try {

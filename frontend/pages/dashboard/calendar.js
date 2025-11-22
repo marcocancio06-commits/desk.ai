@@ -4,7 +4,7 @@ import EmptyState from '../../components/ui/EmptyState';
 import StatusPill from '../../components/ui/StatusPill';
 import UrgencyBadge from '../../components/ui/UrgencyBadge';
 import QuickActionsBar from '../../components/ui/QuickActionsBar';
-import { BACKEND_URL } from '../../lib/config';
+import { BACKEND_URL, DEFAULT_BUSINESS_ID } from '../../lib/config';
 
 export default function Calendar() {
   const [appointments, setAppointments] = useState([]);
@@ -21,7 +21,8 @@ export default function Calendar() {
   const fetchAppointments = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${BACKEND_URL}/api/appointments`);
+      // Include businessId in the API request
+      const response = await fetch(`${BACKEND_URL}/api/appointments?businessId=${encodeURIComponent(DEFAULT_BUSINESS_ID)}`);
       const data = await response.json();
       
       if (data.ok) {
