@@ -5,8 +5,10 @@ import EmptyState from '../../components/ui/EmptyState';
 import QuickActionCard from '../../components/ui/QuickActionCard';
 import RecentActivityTimeline from '../../components/dashboard/RecentActivityTimeline';
 import { BACKEND_URL, DEFAULT_BUSINESS_ID } from '../../lib/config';
+import { withAuth } from '../../contexts/AuthContext';
+import { getAuthHeader } from '../../lib/supabase';
 
-export default function Dashboard() {
+function Dashboard() {
   const [leads, setLeads] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -19,7 +21,10 @@ export default function Dashboard() {
     else setLoading(true);
     
     try {
-      const res = await fetch(`${BACKEND_URL}/api/leads?businessId=${DEFAULT_BUSINESS_ID}`);
+      const authHeader = await getAuthHeader();
+      const res = await fetch(`${BACKEND_URL}/api/leads`, {
+        headers: authHeader
+      });
       
       if (!res.ok) {
         throw new Error(`Failed to fetch leads: ${res.status}`);
@@ -299,3 +304,5 @@ export default function Dashboard() {
     </Layout>
   );
 }
+
+export default withAuth(Dashboard);

@@ -6,8 +6,10 @@ import LeadDetailModal from './components/LeadDetailModal';
 import QuickActionsBar from '../../components/ui/QuickActionsBar';
 import { RefreshCw, Filter } from 'lucide-react';
 import { BACKEND_URL, DEFAULT_BUSINESS_ID } from '../../lib/config';
+import { withAuth } from '../../contexts/AuthContext';
+import { getAuthHeader } from '../../lib/supabase';
 
-export default function Leads() {
+function Leads() {
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -19,7 +21,10 @@ export default function Leads() {
   
   const fetchLeads = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/leads?businessId=${DEFAULT_BUSINESS_ID}`);
+      const authHeader = await getAuthHeader();
+      const res = await fetch(`${BACKEND_URL}/api/leads`, {
+        headers: authHeader
+      });
       if (!res.ok) {
         throw new Error(`Failed to fetch leads: ${res.status}`);
       }
@@ -307,3 +312,5 @@ export default function Leads() {
     </Layout>
   );
 }
+
+export default withAuth(Leads);

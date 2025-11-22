@@ -12,6 +12,12 @@ const {
 } = require('./calendarClient');
 const googleCalendarOAuth = require('./googleCalendarOAuth');
 const twilioService = require('./twilioService');
+const { 
+  getContextFromRequest, 
+  requireAuth, 
+  requireBusiness,
+  getUserBusinesses 
+} = require('./authHelper');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -108,15 +114,10 @@ app.post('/api/message', async (req, res) => {
   }
 });
 
-// Get leads for a business - Now from database
-app.get('/api/leads', async (req, res) => {
-  let { businessId, status, urgency, limit } = req.query;
-  
-  // Default to demo business if not provided (for demo/development mode)
-  if (!businessId) {
-    console.warn('⚠️  No businessId provided to /api/leads, defaulting to demo-business-001');
-    businessId = 'demo-business-001';
-  }
+// Get leads for a business - Protected endpoint (requires auth or demo mode)
+app.get('/api/leads', requireBusiness, async (req, res) => {
+  const { businessId, userId, isDemo } = req.authContext;
+  let { status, urgency, limit } = req.query;
   
   try {
     const filters = {};
@@ -134,7 +135,9 @@ app.get('/api/leads', async (req, res) => {
         today: statsToday,
         last7Days: statsLast7Days
       },
-      count: leads.length
+      count: leads.length,
+      businessId,
+      isDemo
     });
   } catch (error) {
     console.error('Error fetching leads:', error);
@@ -145,17 +148,14 @@ app.get('/api/leads', async (req, res) => {
   }
 });
 
-// Get daily summary with metrics and AI-generated insights - Now from database
-app.get('/api/summary', async (req, res) => {
-  const { businessId } = req.query;
-  
-  // Default to demo-business-001 if not provided
-  const targetBusinessId = businessId || 'demo-business-001';
+// Get daily summary with metrics and AI-generated insights - Protected endpoint
+app.get('/api/summary', requireBusiness, async (req, res) => {
+  const { businessId } = req.authContext;
   
   try {
     // Get metrics for today and last 7 days from database
-    const metricsToday = await db.getLeadStats(targetBusinessId, 0);
-    const metricsLast7Days = await db.getLeadStats(targetBusinessId, 7);
+    const metricsToday = await db.getLeadStats(businessId, 0);
+    const metricsLast7Days = await db.getLeadStats(businessId, 7);
     
     const metrics = {
       today: metricsToday,
@@ -163,12 +163,12 @@ app.get('/api/summary', async (req, res) => {
     };
     
     // Get ready-to-book appointments from database
-    const allAppointments = await db.getAppointmentsByBusiness(targetBusinessId, {
+    const allAppointments = await db.getAppointmentsByBusiness(businessId, {
       status: 'pending'
     });
     
     // Also get qualified leads that could be scheduled
-    const qualifiedLeads = await db.getAllLeads(targetBusinessId, {
+    const qualifiedLeads = await db.getAllLeads(businessId, {
       status: 'ready_to_book',
       limit: 10
     });
@@ -190,7 +190,7 @@ app.get('/api/summary', async (req, res) => {
     
     // Generate AI summary
     const aiSummary = await generateDailySummary({
-      businessId: targetBusinessId,
+      businessId,
       metrics,
       appointments
     });
@@ -201,7 +201,7 @@ app.get('/api/summary', async (req, res) => {
     
     // Return complete summary
     res.status(200).json({
-      businessId: targetBusinessId,
+      businessId,
       dateRange: {
         today: today.toISOString().split('T')[0],
         last7DaysStart: last7DaysStart.toISOString().split('T')[0]
@@ -515,15 +515,10 @@ app.post('/api/report-bug', async (req, res) => {
 // APPOINTMENTS API - Manage jobs/appointments - Now with database persistence
 // ============================================================================
 
-// GET /api/appointments - List appointments with optional filtering
-app.get('/api/appointments', async (req, res) => {
-  let { businessId, status, urgency, startDate, endDate } = req.query;
-  
-  // Default to demo business if not provided (for demo/development mode)
-  if (!businessId) {
-    console.warn('⚠️  No businessId provided to /api/appointments, defaulting to demo-business-001');
-    businessId = 'demo-business-001';
-  }
+// GET /api/appointments - List appointments with optional filtering (Protected)
+app.get('/api/appointments', requireBusiness, async (req, res) => {
+  const { businessId } = req.authContext;
+  let { status, urgency, startDate, endDate } = req.query;
   
   try {
     const filters = { businessId };
@@ -554,10 +549,10 @@ app.get('/api/appointments', async (req, res) => {
   }
 });
 
-// POST /api/appointments - Create new appointment with database + optional calendar sync
-app.post('/api/appointments', async (req, res) => {
+// POST /api/appointments - Create new appointment with database + optional calendar sync (Protected)
+app.post('/api/appointments', requireBusiness, async (req, res) => {
+  const { businessId: authBusinessId } = req.authContext;
   const { 
-    businessId,
     leadId,
     customerPhone, 
     issueSummary, 
@@ -570,14 +565,10 @@ app.post('/api/appointments', async (req, res) => {
     internalNotes
   } = req.body;
   
-  // Validate required fields
-  if (!businessId) {
-    return res.status(400).json({
-      ok: false,
-      error: 'businessId is required'
-    });
-  }
+  // Use authenticated business ID
+  const businessId = authBusinessId;
   
+  // Validate required fields
   if (!customerPhone || !issueSummary) {
     return res.status(400).json({ 
       ok: false,
@@ -1214,7 +1205,64 @@ app.listen(PORT, () => {
     console.log(`   To enable: Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER to .env`);
     console.log(`   See TWILIO_SETUP.md for instructions`);
   }
+
+  // Check Auth configuration
+  console.log(`🔐 Supabase Auth: ${supabase ? '✅ Configured' : '⚠️  Not configured'}`);
   
   // Start auto-sync if OAuth is configured
   startAutoSync();
+});
+
+// ============================================================================
+// AUTH API - User authentication and business access
+// ============================================================================
+
+// GET /api/auth/me - Get current user profile and businesses
+app.get('/api/auth/me', requireAuth, async (req, res) => {
+  const { userId, businessId, profile, business, isDemo } = req.authContext;
+  
+  try {
+    // Get all businesses the user has access to
+    const businesses = await getUserBusinesses(userId);
+    
+    res.status(200).json({
+      ok: true,
+      user: {
+        id: userId,
+        profile
+      },
+      currentBusiness: business,
+      businesses,
+      isDemo
+    });
+  } catch (error) {
+    console.error('Error fetching user info:', error);
+    res.status(500).json({
+      ok: false,
+      error: 'Failed to fetch user information',
+      details: error.message
+    });
+  }
+});
+
+// GET /api/auth/businesses - Get all businesses for current user
+app.get('/api/auth/businesses', requireAuth, async (req, res) => {
+  const { userId } = req.authContext;
+  
+  try {
+    const businesses = await getUserBusinesses(userId);
+    
+    res.status(200).json({
+      ok: true,
+      businesses,
+      count: businesses.length
+    });
+  } catch (error) {
+    console.error('Error fetching businesses:', error);
+    res.status(500).json({
+      ok: false,
+      error: 'Failed to fetch businesses',
+      details: error.message
+    });
+  }
 });

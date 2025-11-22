@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Layout from './components/Layout';
+import { withAuth } from '../../contexts/AuthContext';
 
-export default function Settings() {
+function Settings() {
   const router = useRouter();
   const [calendarStatus, setCalendarStatus] = useState(null);
   const [loadingCalendar, setLoadingCalendar] = useState(true);
@@ -763,3 +764,4 @@ export default function Settings() {
     </Layout>
   );
 }
+export default withAuth(Settings);

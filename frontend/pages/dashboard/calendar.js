@@ -5,6 +5,8 @@ import { format, parse, startOfWeek, getDay, addHours, setHours, setMinutes } fr
 import { enUS } from 'date-fns/locale';
 import Layout from './components/Layout';
 import { BACKEND_URL, DEFAULT_BUSINESS_ID } from '../../lib/config';
+import { withAuth } from '../../contexts/AuthContext';
+import { getAuthHeader } from '../../lib/supabase';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 
@@ -201,7 +203,7 @@ function AppointmentModal({ appointment, onClose, onSave, onDelete }) {
   );
 }
 
-export default function CalendarPage() {
+function CalendarPage() {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -216,8 +218,11 @@ export default function CalendarPage() {
   const fetchAppointments = async () => {
     try {
       setLoading(true);
-      const url = BACKEND_URL + '/api/appointments?businessId=' + encodeURIComponent(DEFAULT_BUSINESS_ID);
-      const response = await fetch(url);
+      const authHeader = await getAuthHeader();
+      const url = BACKEND_URL + '/api/appointments';
+      const response = await fetch(url, {
+        headers: authHeader
+      });
       const data = await response.json();
       if (data.ok) {
         setAppointments(data.data);
@@ -504,3 +509,5 @@ export default function CalendarPage() {
     </Layout>
   );
 }
+
+export default withAuth(CalendarPage);
