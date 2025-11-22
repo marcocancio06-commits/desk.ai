@@ -1356,6 +1356,132 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/business/:slug - Get public business info by slug (no auth required)
+app.get('/api/business/:slug', async (req, res) => {
+  const { slug } = req.params;
+  
+  try {
+    logger.info('Fetching business by slug', { slug });
+    
+    if (!supabase) {
+      return res.status(500).json({
+        ok: false,
+        error: 'Database not configured'
+      });
+    }
+    
+    // Query Supabase for business by slug
+    const { data: business, error } = await supabase
+      .from('businesses')
+      .select('*')
+      .eq('slug', slug)
+      .eq('is_active', true)
+      .single();
+    
+    if (error) {
+      logger.warn('Business not found', { slug, error: error.message });
+      return res.status(404).json({
+        ok: false,
+        error: 'Business not found'
+      });
+    }
+    
+    if (!business) {
+      return res.status(404).json({
+        ok: false,
+        error: 'Business not found'
+      });
+    }
+    
+    logger.info('Business found', { slug, businessId: business.id });
+    
+    // Return public business info (hide sensitive data)
+    res.json({
+      ok: true,
+      business: {
+        id: business.id,
+        slug: business.slug,
+        name: business.name,
+        phone: business.phone,
+        email: business.email,
+        industry: business.industry,
+        serviceZipCodes: business.service_zip_codes || [],
+        services: business.services || [],
+        hours: business.hours || {},
+        pricing: business.pricing || {},
+        policies: business.policies || {},
+        emergencyPolicy: business.emergency_policy
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching business', { slug, error: error.message });
+    res.status(500).json({
+      ok: false,
+      error: 'Failed to fetch business',
+      details: error.message
+    });
+  }
+});
+
+// GET /api/businesses - Get all active businesses (public, no auth required)
+app.get('/api/businesses', async (req, res) => {
+  try {
+    logger.info('Fetching all active businesses');
+    
+    if (!supabase) {
+      return res.status(500).json({
+        ok: false,
+        error: 'Database not configured'
+      });
+    }
+    
+    // Query all active businesses
+    const { data: businesses, error } = await supabase
+      .from('businesses')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      logger.error('Error fetching businesses', { error: error.message });
+      return res.status(500).json({
+        ok: false,
+        error: 'Failed to fetch businesses'
+      });
+    }
+    
+    // Return public business info
+    const publicBusinesses = (businesses || []).map(business => ({
+      id: business.id,
+      slug: business.slug,
+      name: business.name,
+      phone: business.phone,
+      email: business.email,
+      industry: business.industry,
+      serviceZipCodes: business.service_zip_codes || [],
+      services: business.services || [],
+      hours: business.hours || {},
+      pricing: business.pricing || {},
+      policies: business.policies || {}
+    }));
+    
+    logger.info('Businesses fetched', { count: publicBusinesses.length });
+    
+    res.json({
+      ok: true,
+      businesses: publicBusinesses,
+      count: publicBusinesses.length
+    });
+  } catch (error) {
+    logger.error('Error fetching businesses', { error: error.message });
+    res.status(500).json({
+      ok: false,
+      error: 'Failed to fetch businesses',
+      details: error.message
+    });
+  }
+});
+
 // GET /api/auth/businesses - Get all businesses for current user
 app.get('/api/auth/businesses', requireAuth, async (req, res) => {
   const { userId } = req.authContext;
