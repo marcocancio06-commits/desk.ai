@@ -10,6 +10,10 @@ export default function Settings() {
   const [disconnecting, setDisconnecting] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [message, setMessage] = useState(null);
+  
+  // Twilio SMS state
+  const [twilioStatus, setTwilioStatus] = useState(null);
+  const [loadingTwilio, setLoadingTwilio] = useState(true);
 
   const businessId = 'demo-business-001';
   
@@ -69,7 +73,27 @@ export default function Settings() {
 
   useEffect(() => {
     fetchCalendarStatus();
+    fetchTwilioStatus();
   }, []);
+
+  // Fetch Twilio SMS status
+  const fetchTwilioStatus = async () => {
+    try {
+      const response = await fetch('http://localhost:3001/api/twilio/status');
+      const data = await response.json();
+      
+      if (data.ok) {
+        setTwilioStatus(data.data);
+      } else {
+        setTwilioStatus({ configured: false });
+      }
+    } catch (error) {
+      console.error('Error fetching Twilio status:', error);
+      setTwilioStatus({ configured: false });
+    } finally {
+      setLoadingTwilio(false);
+    }
+  };
 
   // Connect Google Calendar - Disabled for demo
   const handleConnect = async () => {
@@ -507,6 +531,163 @@ export default function Settings() {
                   In the meantime, all appointments are securely stored in your Desk.ai dashboard
                 </p>
               </div>
+            )}
+          </div>
+        </div>
+
+        {/* Twilio SMS Integration */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-slate-200">
+          <div className="px-6 py-5 border-b border-slate-200 bg-gradient-to-r from-green-50 to-white">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <svg className="w-6 h-6 text-green-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                </svg>
+                <h2 className="text-lg font-bold text-slate-900">Twilio SMS Integration</h2>
+              </div>
+              {loadingTwilio ? (
+                <div className="inline-block w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+              ) : twilioStatus?.configured ? (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-200">
+                  <svg className="w-3 h-3 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  {twilioStatus?.testMode ? 'Test Mode' : 'Production'}
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
+                  Not Configured
+                </span>
+              )}
+            </div>
+          </div>
+          
+          <div className="px-6 py-6 space-y-4">
+            {twilioStatus?.configured ? (
+              <>
+                {/* Connected state */}
+                <div className="flex items-start p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <svg className="w-5 h-5 text-green-600 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-green-900 mb-1">Twilio SMS is configured and active</p>
+                    <p className="text-sm text-green-700">
+                      Desk.ai can now handle customer SMS conversations automatically.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Configuration details */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                    <span className="text-sm font-medium text-slate-600">Phone Number</span>
+                    <span className="text-sm font-mono text-slate-900">{twilioStatus.phoneNumber}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                    <span className="text-sm font-medium text-slate-600">Account SID</span>
+                    <span className="text-sm font-mono text-slate-900">{twilioStatus.accountSid}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                    <span className="text-sm font-medium text-slate-600">Mode</span>
+                    <span className={`text-sm font-semibold ${twilioStatus.testMode ? 'text-amber-600' : 'text-green-600'}`}>
+                      {twilioStatus.testMode ? 'Sandbox / Test' : 'Production'}
+                    </span>
+                  </div>
+                </div>
+
+                {twilioStatus.testMode && (
+                  <div className="flex items-start p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                    <svg className="w-5 h-5 text-amber-600 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-amber-900 mb-1">Test Mode Active</p>
+                      <p className="text-sm text-amber-700">
+                        SMS will only work with verified phone numbers in your Twilio sandbox. 
+                        To enable production SMS, configure a real Twilio phone number and set TWILIO_TEST_MODE=false.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Features */}
+                <div className="pt-3">
+                  <p className="text-sm font-semibold text-slate-700 mb-3">Active Features:</p>
+                  <div className="space-y-2">
+                    <div className="flex items-start">
+                      <svg className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-sm text-slate-600">Inbound SMS webhook - auto-creates leads and responds with AI</span>
+                    </div>
+                    <div className="flex items-start">
+                      <svg className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-sm text-slate-600">Outbound SMS - send replies from lead dashboard</span>
+                    </div>
+                    <div className="flex items-start">
+                      <svg className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-sm text-slate-600">SMS conversation logging and history tracking</span>
+                    </div>
+                    <div className="flex items-start">
+                      <svg className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-sm text-slate-600">SMS badge on leads with text conversations</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Not configured state */}
+                <div className="flex items-start p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <svg className="w-5 h-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-blue-900 mb-1">Twilio SMS is not configured</p>
+                    <p className="text-sm text-blue-700">
+                      To enable SMS conversations, add your Twilio credentials to the backend .env file. 
+                      See TWILIO_SETUP.md for detailed instructions.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <p className="text-sm font-semibold text-slate-700 mb-3">What you'll get:</p>
+                  <div className="space-y-2">
+                    <div className="flex items-start">
+                      <svg className="w-4 h-4 text-slate-400 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-sm text-slate-600">Automatic SMS lead capture and AI responses</span>
+                    </div>
+                    <div className="flex items-start">
+                      <svg className="w-4 h-4 text-slate-400 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-sm text-slate-600">Two-way SMS conversations from the dashboard</span>
+                    </div>
+                    <div className="flex items-start">
+                      <svg className="w-4 h-4 text-slate-400 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-sm text-slate-600">Full conversation history and SMS tracking</span>
+                    </div>
+                    <div className="flex items-start">
+                      <svg className="w-4 h-4 text-slate-400 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-sm text-slate-600">Test mode for sandbox development</span>
+                    </div>
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </div>

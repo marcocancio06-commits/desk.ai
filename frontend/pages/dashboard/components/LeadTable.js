@@ -90,6 +90,17 @@ export default function LeadTable({ leads, onLeadClick }) {
                   <div className="flex items-center gap-2">
                     <StatusPill status={lead.status} size="sm" />
                     <UrgencyBadge urgency={lead.urgency} size="sm" />
+                    {lead.sms_enabled && (
+                      <span 
+                        className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200"
+                        title={`Last SMS: ${lead.last_sms_at ? new Date(lead.last_sms_at).toLocaleString() : 'Unknown'}`}
+                      >
+                        <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V5zm3.293 1.293a1 1 0 011.414 0l3.293 3.293 3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                        </svg>
+                        SMS
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-500">
@@ -132,6 +143,17 @@ export default function LeadTable({ leads, onLeadClick }) {
             <div className="flex items-center gap-2 flex-wrap">
               <StatusPill status={lead.status} size="sm" />
               <UrgencyBadge urgency={lead.urgency} size="sm" />
+              {lead.sms_enabled && (
+                <span 
+                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200"
+                  title={`Last SMS: ${lead.last_sms_at ? new Date(lead.last_sms_at).toLocaleString() : 'Unknown'}`}
+                >
+                  <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V5zm3.293 1.293a1 1 0 011.414 0l3.293 3.293 3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                  </svg>
+                  SMS
+                </span>
+              )}
             </div>
           </div>
         ))}

@@ -11,6 +11,7 @@ const {
   isEnabled: isCalendarEnabled 
 } = require('./calendarClient');
 const googleCalendarOAuth = require('./googleCalendarOAuth');
+const twilioService = require('./twilioService');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -922,6 +923,216 @@ app.post('/api/conflicts/:id/resolve', async (req, res) => {
 });
 
 // ============================================================================
+// TWILIO SMS ROUTES
+// ============================================================================
+
+// Get Twilio configuration status
+app.get('/api/twilio/status', (req, res) => {
+  try {
+    const status = twilioService.getStatus();
+    res.status(200).json({ ok: true, data: status });
+  } catch (error) {
+    console.error('Error getting Twilio status:', error);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// Inbound SMS webhook from Twilio
+app.post('/api/twilio/sms/inbound', async (req, res) => {
+  try {
+    // Validate webhook signature (security)
+    const twilioSignature = req.headers['x-twilio-signature'];
+    const url = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+    
+    if (twilioService.isConfigured() && !twilioService.validateWebhookSignature(twilioSignature, url, req.body)) {
+      console.error('❌ Invalid Twilio webhook signature');
+      return res.status(403).send('Forbidden');
+    }
+
+    // Parse incoming SMS
+    const incomingMessage = twilioService.parseIncomingSMS(req.body);
+    console.log('📱 Incoming SMS:', {
+      from: incomingMessage.from,
+      body: incomingMessage.body.substring(0, 50) + '...'
+    });
+
+    // Get or create lead based on phone number
+    let lead = await db.getLeadByPhone(incomingMessage.from);
+    
+    if (!lead) {
+      console.log('📝 Creating new lead from SMS');
+      lead = await db.createLead({
+        phone: incomingMessage.from,
+        name: incomingMessage.fromCity ? `Customer from ${incomingMessage.fromCity}` : 'SMS Customer',
+        source: 'sms',
+        status: 'new',
+        businessId: 1 // Default business ID
+      });
+    }
+
+    // Save incoming SMS to database
+    await db.createSMSMessage({
+      leadId: lead.id,
+      twilioSid: incomingMessage.messageSid,
+      twilioAccountSid: incomingMessage.accountSid,
+      direction: 'inbound',
+      fromNumber: incomingMessage.from,
+      toNumber: incomingMessage.to,
+      body: incomingMessage.body,
+      status: 'received',
+      numMedia: incomingMessage.numMedia,
+      fromCity: incomingMessage.fromCity,
+      fromState: incomingMessage.fromState,
+      fromZip: incomingMessage.fromZip,
+      fromCountry: incomingMessage.fromCountry
+    });
+
+    // Get conversation history
+    const conversationHistory = await db.getSMSMessagesByLead(lead.id);
+    const messages = conversationHistory.map(msg => ({
+      role: msg.direction === 'inbound' ? 'user' : 'assistant',
+      content: msg.body
+    }));
+
+    // Run AI pipeline to generate response
+    const aiResponse = await handleCustomerMessage({
+      message: incomingMessage.body,
+      customerPhone: incomingMessage.from,
+      leadId: lead.id,
+      conversationHistory: messages
+    });
+
+    // Update lead with AI insights
+    if (aiResponse) {
+      await db.updateLeadFromAIResponse(lead.id, aiResponse);
+    }
+
+    // Send AI response via SMS
+    let replyText = aiResponse?.response || "Thanks for your message! We'll get back to you shortly.";
+    
+    if (twilioService.isConfigured()) {
+      try {
+        const sentMessage = await twilioService.sendSMS(incomingMessage.from, replyText);
+        
+        // Save outbound SMS to database
+        await db.createSMSMessage({
+          leadId: lead.id,
+          twilioSid: sentMessage.sid,
+          twilioAccountSid: twilioService.accountSid,
+          direction: 'outbound',
+          fromNumber: sentMessage.from,
+          toNumber: sentMessage.to,
+          body: replyText,
+          status: sentMessage.status
+        });
+      } catch (smsError) {
+        console.error('❌ Error sending SMS reply:', smsError.message);
+        // Continue anyway - don't fail the webhook
+      }
+    }
+
+    // Return TwiML response (Twilio expects this)
+    const twiml = twilioService.createTwiMLResponse();
+    res.type('text/xml');
+    res.send(twiml);
+
+  } catch (error) {
+    console.error('❌ Error processing inbound SMS:', error);
+    
+    // Return empty TwiML to prevent Twilio from retrying
+    const twiml = twilioService.createTwiMLResponse();
+    res.type('text/xml');
+    res.send(twiml);
+  }
+});
+
+// Outbound SMS - Send SMS from dashboard
+app.post('/api/twilio/sms/outbound', async (req, res) => {
+  const { leadId, phoneNumber, message } = req.body;
+
+  if (!leadId || !phoneNumber || !message) {
+    return res.status(400).json({ 
+      ok: false, 
+      error: 'leadId, phoneNumber, and message are required' 
+    });
+  }
+
+  if (!twilioService.isConfigured()) {
+    return res.status(503).json({ 
+      ok: false, 
+      error: 'Twilio is not configured. Please add credentials to .env file.' 
+    });
+  }
+
+  try {
+    // Format phone number
+    const formattedPhone = twilioService.formatPhoneNumber(phoneNumber);
+
+    // Send SMS via Twilio
+    const sentMessage = await twilioService.sendSMS(formattedPhone, message);
+
+    // Save to database
+    const dbMessage = await db.createSMSMessage({
+      leadId,
+      twilioSid: sentMessage.sid,
+      twilioAccountSid: twilioService.accountSid,
+      direction: 'outbound',
+      fromNumber: sentMessage.from,
+      toNumber: sentMessage.to,
+      body: message,
+      status: sentMessage.status
+    });
+
+    res.status(200).json({ 
+      ok: true, 
+      data: {
+        message: dbMessage,
+        twilioStatus: sentMessage.status
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error sending outbound SMS:', error);
+    res.status(500).json({ 
+      ok: false, 
+      error: error.message 
+    });
+  }
+});
+
+// Get SMS messages for a lead
+app.get('/api/leads/:leadId/sms', async (req, res) => {
+  const { leadId } = req.params;
+
+  try {
+    const messages = await db.getSMSMessagesByLead(leadId);
+    res.status(200).json({ ok: true, data: messages });
+  } catch (error) {
+    console.error('Error getting SMS messages:', error);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// SMS delivery status webhook (optional - for tracking)
+app.post('/api/twilio/sms/status', async (req, res) => {
+  try {
+    const { MessageSid, MessageStatus, ErrorCode, ErrorMessage } = req.body;
+    
+    console.log(`📱 SMS Status Update: ${MessageSid} -> ${MessageStatus}`);
+    
+    // Update message status in database
+    if (MessageSid) {
+      await db.updateSMSMessageStatus(MessageSid, MessageStatus, ErrorCode, ErrorMessage);
+    }
+    
+    res.status(200).send('OK');
+  } catch (error) {
+    console.error('Error processing SMS status update:', error);
+    res.status(200).send('OK'); // Always return 200 to Twilio
+  }
+});
+
+// ============================================================================
 // CRON JOB - Auto-sync every 5 minutes
 // ============================================================================
 
@@ -987,6 +1198,21 @@ app.listen(PORT, () => {
     console.log(`📅 Google Calendar OAuth: ⚠️  Not configured`);
     console.log(`   To enable: Add GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, and GOOGLE_OAUTH_REDIRECT_URI to .env`);
     console.log(`   See GOOGLE_CALENDAR_SETUP.md for instructions`);
+  }
+  
+  // Check Twilio SMS configuration
+  if (twilioService.isConfigured()) {
+    const status = twilioService.getStatus();
+    console.log(`📱 Twilio SMS: ✅ Configured (${status.testMode ? 'TEST' : 'PRODUCTION'} mode)`);
+    console.log(`   Phone: ${status.phoneNumber}`);
+    console.log(`   Account: ${status.accountSid}`);
+    if (status.testMode) {
+      console.log(`   ⚠️  Test Mode: Only works with verified numbers in Twilio sandbox`);
+    }
+  } else {
+    console.log(`📱 Twilio SMS: ⚠️  Not configured`);
+    console.log(`   To enable: Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER to .env`);
+    console.log(`   See TWILIO_SETUP.md for instructions`);
   }
   
   // Start auto-sync if OAuth is configured

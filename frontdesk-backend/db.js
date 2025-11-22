@@ -265,6 +265,146 @@ async function getConversationHistory(leadId) {
 }
 
 // ============================================================================
+// SMS MESSAGES (Twilio)
+// ============================================================================
+
+async function createSMSMessage({ 
+  leadId, 
+  twilioSid, 
+  twilioAccountSid,
+  direction, 
+  fromNumber, 
+  toNumber, 
+  body, 
+  status = 'sent',
+  numMedia = 0,
+  fromCity = null,
+  fromState = null,
+  fromZip = null,
+  fromCountry = null,
+  errorCode = null,
+  errorMessage = null
+}) {
+  if (!supabase) {
+    throw new Error('Supabase client not initialized');
+  }
+
+  const { data, error } = await supabase
+    .from('messages')
+    .insert({
+      lead_id: leadId,
+      twilio_sid: twilioSid,
+      twilio_account_sid: twilioAccountSid,
+      direction,
+      from_number: fromNumber,
+      to_number: toNumber,
+      body,
+      status,
+      num_media: numMedia,
+      from_city: fromCity,
+      from_state: fromState,
+      from_zip: fromZip,
+      from_country: fromCountry,
+      error_code: errorCode,
+      error_message: errorMessage,
+      sent_at: new Date().toISOString()
+    })
+    .select()
+    .single();
+
+  if (error) {
+    // Check if it's a duplicate message (Twilio sometimes sends webhooks twice)
+    if (error.code === '23505') { // unique_violation
+      console.log(`ℹ️  Duplicate SMS message ignored: ${twilioSid}`);
+      return null;
+    }
+    throw error;
+  }
+
+  // Update lead's SMS tracking fields
+  await supabase
+    .from('leads')
+    .update({ 
+      sms_enabled: true,
+      last_sms_at: new Date().toISOString() 
+    })
+    .eq('id', leadId);
+
+  return data;
+}
+
+async function getSMSMessagesByLead(leadId, limit = 50) {
+  if (!supabase) {
+    throw new Error('Supabase client not initialized');
+  }
+
+  const { data, error } = await supabase
+    .from('messages')
+    .select('*')
+    .eq('lead_id', leadId)
+    .order('sent_at', { ascending: true })
+    .limit(limit);
+
+  if (error) throw error;
+  return data || [];
+}
+
+async function getSMSMessageByTwilioSid(twilioSid) {
+  if (!supabase) {
+    throw new Error('Supabase client not initialized');
+  }
+
+  const { data, error } = await supabase
+    .from('messages')
+    .select('*')
+    .eq('twilio_sid', twilioSid)
+    .single();
+
+  if (error && error.code !== 'PGRST116') {
+    throw error;
+  }
+
+  return data;
+}
+
+async function updateSMSMessageStatus(twilioSid, status, errorCode = null, errorMessage = null) {
+  if (!supabase) {
+    throw new Error('Supabase client not initialized');
+  }
+
+  const updateData = { status };
+  if (errorCode) updateData.error_code = errorCode;
+  if (errorMessage) updateData.error_message = errorMessage;
+  if (status === 'delivered') updateData.delivered_at = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from('messages')
+    .update(updateData)
+    .eq('twilio_sid', twilioSid)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+async function getLeadsWithSMS(limit = 100) {
+  if (!supabase) {
+    throw new Error('Supabase client not initialized');
+  }
+
+  const { data, error } = await supabase
+    .from('leads')
+    .select('*')
+    .eq('sms_enabled', true)
+    .order('last_sms_at', { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return data || [];
+}
+
+// ============================================================================
 // APPOINTMENTS
 // ============================================================================
 
@@ -963,6 +1103,13 @@ module.exports = {
   createMessage,
   getMessagesByLead,
   getConversationHistory,
+  
+  // SMS Messages (Twilio)
+  createSMSMessage,
+  getSMSMessagesByLead,
+  getSMSMessageByTwilioSid,
+  updateSMSMessageStatus,
+  getLeadsWithSMS,
   
   // Appointments
   createAppointment,
