@@ -2,36 +2,319 @@ const { getBusinessConfig } = require('./businessConfig');
 const Anthropic = require('@anthropic-ai/sdk');
 
 // ============================================================================
-// IMPROVED SYSTEM PROMPT - Dramatically smarter, with few-shot examples
+// CONVERSATION STATE MACHINE
 // ============================================================================
-const systemPrompt = `You are Desk.ai, the AI front desk for local service businesses (plumbing, HVAC, electricians, cleaning, appliance repair, etc.)
+const CONVERSATION_STATES = {
+  INITIAL: 'initial',
+  COLLECTING_INFO: 'collecting_info',
+  QUALIFIED: 'qualified',
+  READY_TO_SCHEDULE: 'ready_to_schedule'
+};
+
+// State transition rules
+function determineConversationState(collectedData, confidenceScores) {
+  const { issue_summary, zip_code, preferred_time, urgency } = collectedData;
+  const scores = confidenceScores || {};
+  
+  // Check if all fields are collected with sufficient confidence
+  const hasIssue = issue_summary && (scores.issue || 0) >= 0.7;
+  const hasZip = zip_code && (scores.zip_code || 0) >= 0.9;
+  const hasTime = preferred_time && (scores.preferred_time || 0) >= 0.6;
+  const hasUrgency = urgency && urgency !== 'none';
+  
+  // State transitions
+  if (hasIssue && hasZip && hasTime && hasUrgency) {
+    return CONVERSATION_STATES.READY_TO_SCHEDULE;
+  } else if (hasIssue && (hasZip || hasTime || hasUrgency)) {
+    return CONVERSATION_STATES.QUALIFIED;
+  } else if (hasIssue || hasZip) {
+    return CONVERSATION_STATES.COLLECTING_INFO;
+  }
+  
+  return CONVERSATION_STATES.INITIAL;
+}
+
+// ============================================================================
+// INDUSTRY PRESETS - Affects phrasing only, not data extraction
+// ============================================================================
+const INDUSTRY_PRESETS = {
+  plumbing: {
+    emergencyKeywords: ['leak', 'burst', 'flood', 'sewage', 'backup', 'overflow', 'no water', 'broken pipe'],
+    exampleIssues: 'leaking pipe, clogged drain, water heater issue, toilet not flushing',
+    questionPhrasing: {
+      issue: "What's going on with your plumbing?",
+      urgency: "Is this an emergency (like a leak or backup) or can it wait?"
+    }
+  },
+  hvac: {
+    emergencyKeywords: ['no heat', 'no cooling', 'no ac', 'freezing', 'carbon monoxide', 'gas smell', 'furnace not working'],
+    exampleIssues: 'AC not cooling, heater not working, thermostat issue, strange noises',
+    questionPhrasing: {
+      issue: "What's happening with your heating or cooling system?",
+      urgency: "Is your home too hot or too cold right now?"
+    }
+  },
+  electrical: {
+    emergencyKeywords: ['sparks', 'burning smell', 'no power', 'breaker tripping', 'shock', 'exposed wire', 'smoke'],
+    exampleIssues: 'outlet not working, breaker keeps tripping, flickering lights, need new outlet',
+    questionPhrasing: {
+      issue: "What electrical issue are you experiencing?",
+      urgency: "Is there any burning smell, sparks, or safety concern?"
+    }
+  },
+  roofing: {
+    emergencyKeywords: ['leak', 'water coming in', 'hole', 'storm damage', 'missing shingles', 'ceiling wet'],
+    exampleIssues: 'roof leak, missing shingles, gutter repair, storm damage',
+    questionPhrasing: {
+      issue: "What's going on with your roof?",
+      urgency: "Is water actively coming into your home?"
+    }
+  },
+  cleaning: {
+    emergencyKeywords: ['flood', 'sewage', 'biohazard', 'mold emergency'],
+    exampleIssues: 'deep clean, move-out cleaning, regular maintenance, carpet cleaning',
+    questionPhrasing: {
+      issue: "What type of cleaning service do you need?",
+      urgency: "When do you need this done?"
+    }
+  },
+  handyman: {
+    emergencyKeywords: ['broken door', 'lock broken', 'security', 'door won\'t close'],
+    exampleIssues: 'door repair, drywall patch, shelf installation, general repairs',
+    questionPhrasing: {
+      issue: "What needs to be fixed or installed?",
+      urgency: "Is this urgent or can we schedule it for later this week?"
+    }
+  }
+};
+
+function getIndustryPreset(servicesList) {
+  const servicesLower = servicesList.map(s => s.toLowerCase()).join(' ');
+  
+  if (servicesLower.includes('plumb')) return INDUSTRY_PRESETS.plumbing;
+  if (servicesLower.includes('hvac') || servicesLower.includes('heating') || servicesLower.includes('cooling')) return INDUSTRY_PRESETS.hvac;
+  if (servicesLower.includes('electr')) return INDUSTRY_PRESETS.electrical;
+  if (servicesLower.includes('roof')) return INDUSTRY_PRESETS.roofing;
+  if (servicesLower.includes('clean')) return INDUSTRY_PRESETS.cleaning;
+  if (servicesLower.includes('handyman') || servicesLower.includes('repair')) return INDUSTRY_PRESETS.handyman;
+  
+  // Default preset
+  return {
+    emergencyKeywords: ['emergency', 'urgent', 'asap', 'right now'],
+    exampleIssues: 'describe your issue',
+    questionPhrasing: {
+      issue: "What can we help you with?",
+      urgency: "How soon do you need service?"
+    }
+  };
+}
+
+// ============================================================================
+// ENHANCED EMERGENCY DETECTION WITH CONFIDENCE SCORING
+// ============================================================================
+function detectEmergency(message) {
+  const msgLower = message.toLowerCase();
+  
+  // Critical emergencies (confidence: 1.0)
+  const critical = [
+    'sparks', 'burning smell', 'smoke', 'fire', 'gas smell', 'carbon monoxide',
+    'no heat', 'freezing', 'flood', 'sewage backup', 'burst pipe', 'water everywhere',
+    'no power', 'electrical shock', 'exposed wire'
+  ];
+  
+  // High urgency (confidence: 0.9)
+  const highUrgency = [
+    'leak', 'water coming in', 'won\'t turn off', 'overflowing', 
+    'no water', 'no hot water', 'ac not working', 'heater not working',
+    'broken pipe', 'toilet won\'t flush'
+  ];
+  
+  // Medium urgency (confidence: 0.7)
+  const mediumUrgency = [
+    'soon', 'today', 'asap', 'urgent', 'emergency', 'right now', 'immediately'
+  ];
+  
+  for (const keyword of critical) {
+    if (msgLower.includes(keyword)) {
+      return { level: 'emergency', confidence: 1.0, trigger: keyword };
+    }
+  }
+  
+  for (const keyword of highUrgency) {
+    if (msgLower.includes(keyword)) {
+      return { level: 'emergency', confidence: 0.9, trigger: keyword };
+    }
+  }
+  
+  for (const keyword of mediumUrgency) {
+    if (msgLower.includes(keyword)) {
+      return { level: 'high', confidence: 0.7, trigger: keyword };
+    }
+  }
+  
+  return { level: 'normal', confidence: 0.5, trigger: null };
+}
+
+// ============================================================================
+// CONFIDENCE-BASED DATA EXTRACTION
+// ============================================================================
+function extractDataFromMessage(message, msgLower, previousData = {}) {
+  const data = {
+    issue_summary: previousData.issue_summary || null,
+    zip_code: previousData.zip_code || null,
+    preferred_time: previousData.preferred_time || null,
+    urgency: previousData.urgency || null
+  };
+  
+  const confidence = {
+    issue: previousData.issue_summary ? 0.8 : 0,
+    zip_code: previousData.zip_code ? 1.0 : 0,
+    preferred_time: previousData.preferred_time ? 0.7 : 0,
+    urgency: previousData.urgency ? 0.8 : 0
+  };
+  
+  // Extract ZIP code (high confidence if 77xxx pattern)
+  const zipMatch = msgLower.match(/\b(77\d{3})\b/);
+  if (zipMatch) {
+    data.zip_code = zipMatch[1];
+    confidence.zip_code = 1.0;
+  }
+  
+  // Detect emergency with confidence
+  const emergency = detectEmergency(message);
+  if (emergency.confidence >= 0.7 && !data.urgency) {
+    data.urgency = emergency.level;
+    confidence.urgency = emergency.confidence;
+  }
+  
+  // Extract time preferences with confidence
+  const timePatterns = [
+    { pattern: /\b(right now|immediately|asap)\b/i, confidence: 1.0 },
+    { pattern: /\b(today|this afternoon|this morning|tonight)\b/i, confidence: 0.9 },
+    { pattern: /\b(tomorrow|this week)\b/i, confidence: 0.8 },
+    { pattern: /\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i, confidence: 0.85 },
+    { pattern: /\b(\d{1,2}:\d{2}\s?(?:am|pm)?)\b/i, confidence: 0.95 },
+    { pattern: /\b(morning|afternoon|evening)\b/i, confidence: 0.7 }
+  ];
+  
+  for (const { pattern, confidence: conf } of timePatterns) {
+    const match = message.match(pattern);
+    if (match && (!data.preferred_time || conf > confidence.preferred_time)) {
+      data.preferred_time = match[0];
+      confidence.preferred_time = conf;
+    }
+  }
+  
+  // Extract issue with confidence scoring
+  const issueKeywords = {
+    // Plumbing
+    leak: 0.9, leaking: 0.9, 'burst pipe': 1.0, clog: 0.9, clogged: 0.9, drain: 0.8,
+    toilet: 0.85, 'water heater': 0.9, pipe: 0.7, faucet: 0.85, sewage: 1.0,
+    // HVAC
+    'no heat': 1.0, 'no cooling': 1.0, 'no ac': 1.0, 'ac not working': 1.0,
+    'heater not working': 1.0, thermostat: 0.8, 'furnace': 0.85,
+    // Electrical
+    sparks: 1.0, 'burning smell': 1.0, 'no power': 0.95, 'breaker tripping': 0.9,
+    outlet: 0.8, 'light not working': 0.75, flickering: 0.85,
+    // General
+    broken: 0.7, 'not working': 0.75, issue: 0.6, problem: 0.6
+  };
+  
+  let highestConfidence = 0;
+  let detectedIssue = '';
+  
+  for (const [keyword, conf] of Object.entries(issueKeywords)) {
+    if (msgLower.includes(keyword) && conf > highestConfidence) {
+      highestConfidence = conf;
+      detectedIssue = keyword;
+    }
+  }
+  
+  if (detectedIssue && (!data.issue_summary || highestConfidence > confidence.issue)) {
+    // Extract surrounding context (up to 50 chars before and after)
+    const index = msgLower.indexOf(detectedIssue);
+    const start = Math.max(0, index - 25);
+    const end = Math.min(message.length, index + detectedIssue.length + 25);
+    data.issue_summary = message.substring(start, end).trim();
+    confidence.issue = highestConfidence;
+  }
+  
+  return { data, confidence };
+}
+
+// ============================================================================
+// IMPROVED SYSTEM PROMPT - State-aware with memory
+// ============================================================================
+function buildSystemPrompt(businessInfo, industryPreset, conversationState, memory) {
+  const alreadyKnown = [];
+  if (memory.issue_summary) alreadyKnown.push(`issue: "${memory.issue_summary}"`);
+  if (memory.zip_code) alreadyKnown.push(`ZIP: ${memory.zip_code}`);
+  if (memory.preferred_time) alreadyKnown.push(`time: "${memory.preferred_time}"`);
+  if (memory.urgency) alreadyKnown.push(`urgency: ${memory.urgency}`);
+  
+  const memoryContext = alreadyKnown.length > 0 
+    ? `\n\nALREADY COLLECTED (NEVER ask again): ${alreadyKnown.join(', ')}`
+    : '';
+  
+  const stateGuidance = {
+    [CONVERSATION_STATES.INITIAL]: 'Start warm and natural. Ask what they need help with.',
+    [CONVERSATION_STATES.COLLECTING_INFO]: 'Continue gathering missing fields. Be conversational and efficient.',
+    [CONVERSATION_STATES.QUALIFIED]: 'Almost done! Collect the last 1-2 missing details.',
+    [CONVERSATION_STATES.READY_TO_SCHEDULE]: 'All info collected. Confirm and set booking_intent="ready_to_book".'
+  };
+
+  return `You are Desk.ai, the AI front desk for ${businessInfo.business_name} (${businessInfo.services.join(', ')}).
 
 Your job is to carry a short, friendly conversation and collect exactly four fields:
 
 1. issue_summary — what's wrong + any relevant details
-2. zip_code — customer location (5 digits)
+2. zip_code — customer location (5 digits, must be in Houston area: 77xxx)
 3. preferred_time — when they want service
 4. urgency — "emergency" | "high" | "normal"
 
+CURRENT STATE: ${conversationState}
+${stateGuidance[conversationState]}${memoryContext}
+
+INDUSTRY CONTEXT (${Object.keys(INDUSTRY_PRESETS).find(k => INDUSTRY_PRESETS[k] === industryPreset) || 'general'}):
+• Common emergencies: ${industryPreset.emergencyKeywords.join(', ')}
+• Example issues: ${industryPreset.exampleIssues}
+• Use natural phrasing for this industry
+
 CONVERSATION BEHAVIOR:
+• NEVER ask for information already collected (see ALREADY COLLECTED above)
 • Ask one or two questions at a time, SMS-style (short & natural)
-• If a field is missing, you MUST ask for it explicitly
+• If a field is missing AND not in memory, you MUST ask for it
 • If the customer is vague (e.g., "Help, something's broken"), ask clarifying questions
 • If customer asks unrelated questions, answer briefly then guide back to the goal
 • When all four fields are collected, set booking_intent="ready_to_book" and give a short confirmation message
 • Always be friendly, concise, and natural — this is a real customer texting a business
+
+EMERGENCY DETECTION:
+• If you detect any of these: ${industryPreset.emergencyKeywords.slice(0, 5).join(', ')} — immediately set urgency="emergency"
+• For emergencies, prioritize speed: collect ZIP + issue, then confirm "We'll call you right away"
+
+GRACEFUL FALLBACKS:
+• If uncertain about urgency and customer hasn't specified, ask: "${industryPreset.questionPhrasing.urgency}"
+• If ZIP code seems wrong (not 77xxx), say "We serve the Houston area (ZIP 77xxx). What's your ZIP code?"
+• If time is unclear, offer: "When works best? Today, tomorrow, or later this week?"
 
 OUTPUT RULES:
 • Always return valid JSON only, following this exact structure:
 
 {
   "reply": "...",
-  "booking_intent": "none | collecting_info | ready_to_book",
+  "booking_intent": "none | collecting_info | qualified | ready_to_book",
   "collected_data": {
     "issue_summary": "...",
     "zip_code": "...",
     "preferred_time": "...",
     "urgency": "emergency | high | normal"
+  },
+  "confidence_scores": {
+    "issue": 0.0-1.0,
+    "zip_code": 0.0-1.0,
+    "preferred_time": 0.0-1.0,
+    "urgency": 0.0-1.0
   },
   "internal_notes": "Short summary for business owner, 1–2 sentences max."
 }
@@ -85,6 +368,7 @@ Assistant: {
 }
 
 NOW HANDLE THE CUSTOMER'S MESSAGE USING THESE GUIDELINES.`;
+}
 
 // ============================================================================
 // BUILD USER PROMPT - Now includes conversation state for better extraction
@@ -132,67 +416,18 @@ Customer Message: "${message}"
 Respond to the customer and extract any relevant booking information. Return ONLY valid JSON, no other text.`;
 }
 
-// Extract data from message using simple pattern matching (fallback)
-function extractDataFromMessage(message, msgLower) {
-  const data = {
-    issue_summary: null,
-    zip_code: null,
-    preferred_time: null,
-    urgency: null
-  };
-  
-  // Extract ZIP code
-  const zipMatch = msgLower.match(/\b(77\d{3})\b/);
-  if (zipMatch) {
-    data.zip_code = zipMatch[1];
-  }
-  
-  // Detect urgency
-  if (msgLower.includes('emergency') || msgLower.includes('urgent') || msgLower.includes('asap') || msgLower.includes('right now')) {
-    data.urgency = 'emergency';
-  } else if (msgLower.includes('soon') || msgLower.includes('today')) {
-    data.urgency = 'high';
-  } else if (msgLower.includes('whenever') || msgLower.includes('no rush')) {
-    data.urgency = 'low';
-  }
-  
-  // Extract time preferences
-  const timePatterns = [
-    /\b(morning|afternoon|evening)\b/,
-    /\b(today|tomorrow|this week|next week)\b/,
-    /\b(\d{1,2}:\d{2}\s?(?:am|pm)?)\b/,
-    /\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/
-  ];
-  
-  for (const pattern of timePatterns) {
-    const match = msgLower.match(pattern);
-    if (match) {
-      data.preferred_time = match[0];
-      break;
-    }
-  }
-  
-  // Extract issue keywords
-  const issueKeywords = ['leak', 'clog', 'drain', 'toilet', 'water heater', 'pipe', 'faucet', 'broken', 'not working'];
-  const foundIssues = issueKeywords.filter(keyword => msgLower.includes(keyword));
-  if (foundIssues.length > 0) {
-    data.issue_summary = foundIssues.join(', ');
-  }
-  
-  return data;
-}
-
 // ============================================================================
 // IMPROVED FALLBACK - Uses simple extraction when AI is unavailable
 // ============================================================================
-function getFallbackResponse(message) {
+function getFallbackResponse(message, previousData = {}) {
   const msgLower = message.toLowerCase();
-  const extractedData = extractDataFromMessage(message, msgLower);
+  const { data, confidence } = extractDataFromMessage(message, msgLower, previousData);
   
   return {
     reply: 'Thanks for reaching out! We received your message and will get back to you shortly.',
     booking_intent: 'collecting_info',
-    collected_data: extractedData,
+    collected_data: data,
+    confidence_scores: confidence,
     internal_notes: 'LLM unavailable, used fallback extraction.'
   };
 }
@@ -207,11 +442,15 @@ function validateResponse(parsed, message) {
   if (!parsed.reply || typeof parsed.reply !== 'string') {
     issues.push('missing or invalid reply');
   }
-  if (!parsed.booking_intent || !['none', 'collecting_info', 'ready_to_book'].includes(parsed.booking_intent)) {
+  if (!parsed.booking_intent || !['none', 'collecting_info', 'qualified', 'ready_to_book'].includes(parsed.booking_intent)) {
     issues.push('missing or invalid booking_intent');
   }
   if (!parsed.collected_data || typeof parsed.collected_data !== 'object') {
     issues.push('missing collected_data');
+  }
+  if (!parsed.confidence_scores || typeof parsed.confidence_scores !== 'object') {
+    // Not critical, but helpful - add default scores
+    parsed.confidence_scores = { issue: 0.5, zip_code: 0.5, preferred_time: 0.5, urgency: 0.5 };
   }
   
   // Check collected_data fields exist
@@ -252,11 +491,47 @@ async function callAnthropicAPI({ apiKey, model, systemPrompt, userPrompt }) {
 }
 
 // ============================================================================
-// MAIN HANDLER - Now with state tracking and hybrid Haiku/Sonnet strategy
+// MAIN HANDLER - Now with state machine, memory, and confidence scoring
 // ============================================================================
 async function handleCustomerMessage({ businessId, from, channel, message, conversationState = null }) {
   const config = getBusinessConfig(businessId);
   const apiKey = process.env.ANTHROPIC_API_KEY;
+  
+  // Initialize memory from conversation state
+  const memory = conversationState?.collected_data || {
+    issue_summary: null,
+    zip_code: null,
+    preferred_time: null,
+    urgency: null
+  };
+  
+  const confidenceScores = conversationState?.confidence_scores || {
+    issue: 0,
+    zip_code: 0,
+    preferred_time: 0,
+    urgency: 0
+  };
+  
+  // Pre-extract data from current message with confidence scoring
+  const msgLower = message.toLowerCase();
+  const extracted = extractDataFromMessage(message, msgLower, memory);
+  
+  // Merge extracted data with memory (new data overrides if confidence is higher)
+  const updatedMemory = { ...memory };
+  const updatedConfidence = { ...confidenceScores };
+  
+  for (const field of ['issue_summary', 'zip_code', 'preferred_time', 'urgency']) {
+    if (extracted.data[field] && extracted.confidence[field] > (confidenceScores[field] || 0)) {
+      updatedMemory[field] = extracted.data[field];
+      updatedConfidence[field] = extracted.confidence[field];
+    }
+  }
+  
+  // Determine conversation state
+  const state = determineConversationState(updatedMemory, updatedConfidence);
+  
+  // Get industry preset
+  const industryPreset = getIndustryPreset(config.services);
   
   // Determine which model to use (default: Haiku for cost efficiency)
   const preferredModel = process.env.AI_MODEL === 'sonnet' 
@@ -268,21 +543,27 @@ async function handleCustomerMessage({ businessId, from, channel, message, conve
   // Check if API key is available
   if (!apiKey) {
     console.warn('⚠️  ANTHROPIC_API_KEY not found. Using fallback response.');
-    return getFallbackResponse(message);
+    return getFallbackResponse(message, updatedMemory);
   }
   
-  // Build the user prompt with conversation state
+  // Build prompts with state and memory awareness
+  const systemPrompt = buildSystemPrompt(config, industryPreset, state, updatedMemory);
   const userPrompt = buildUserPrompt({ 
     config, 
     channel, 
     from, 
     message,
-    conversationState 
+    conversationState: {
+      ...conversationState,
+      collected_data: updatedMemory,
+      confidence_scores: updatedConfidence,
+      state: state
+    }
   });
   
   try {
     // ===== ATTEMPT 1: Use preferred model (usually Haiku) =====
-    console.log(`🤖 Calling ${preferredModel}...`);
+    console.log(`🤖 Calling ${preferredModel} (state: ${state})...`);
     let textContent = await callAnthropicAPI({
       apiKey,
       model: preferredModel,
