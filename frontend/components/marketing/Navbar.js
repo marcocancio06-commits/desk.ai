@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
+import Logo from '../Logo';
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -10,9 +11,7 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <div className="flex-shrink-0">
-            <Link href="/" className="text-2xl font-bold text-gray-900">
-              Desk.ai
-            </Link>
+            <Logo variant="header" showText={true} />
           </div>
 
           {/* Desktop Navigation */}

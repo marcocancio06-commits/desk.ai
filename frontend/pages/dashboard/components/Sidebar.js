@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import Logo from '../../../components/Logo';
 
 export default function Sidebar({ isOpen, onClose }) {
   const router = useRouter();
@@ -57,18 +58,8 @@ export default function Sidebar({ isOpen, onClose }) {
       <div className="hidden lg:flex lg:flex-col lg:w-64 bg-slate-900 lg:min-h-screen lg:fixed">
         {/* Logo */}
         <div className="p-6 border-b border-slate-800">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/50">
-              <span className="text-white text-lg font-bold">D</span>
-            </div>
-            <div>
-              <div className="flex items-center space-x-1.5">
-                <h1 className="text-xl font-bold text-white">Desk.ai</h1>
-                <span className="text-lg">✨</span>
-              </div>
-              <p className="text-slate-400 text-xs">Owner Dashboard</p>
-            </div>
-          </div>
+          <Logo variant="sidebar" showText={true} linkTo="/dashboard" />
+          <p className="text-slate-400 text-xs mt-2">Owner Dashboard</p>
         </div>
         
         {/* Navigation */}
@@ -119,17 +110,9 @@ export default function Sidebar({ isOpen, onClose }) {
       }`}>
         {/* Logo */}
         <div className="p-6 flex items-center justify-between border-b border-slate-800">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/50">
-              <span className="text-white text-lg font-bold">D</span>
-            </div>
-            <div>
-              <div className="flex items-center space-x-1.5">
-                <h1 className="text-xl font-bold text-white">Desk.ai</h1>
-                <span className="text-lg">✨</span>
-              </div>
-              <p className="text-slate-400 text-xs">Owner Dashboard</p>
-            </div>
+          <div>
+            <Logo variant="sidebar" showText={true} linkTo="/dashboard" onClick={onClose} />
+            <p className="text-slate-400 text-xs mt-2">Owner Dashboard</p>
           </div>
           <button
             onClick={onClose}

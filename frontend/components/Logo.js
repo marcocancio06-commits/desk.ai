@@ -1,0 +1,99 @@
+import Image from 'next/image';
+import Link from 'next/link';
+
+/**
+ * Shared Desk.ai logo component
+ * 
+ * @param {string} variant - "header" (landing page), "sidebar" (dashboard), or "minimal" (icon only)
+ * @param {number} size - Size in pixels (defaults based on variant)
+ * @param {boolean} showText - Whether to show "Desk.ai" text next to logo
+ * @param {string} linkTo - Where to link (defaults: "/" for header, "/dashboard" for sidebar, null for minimal)
+ * @param {string} textColor - Color class for text (default: depends on variant)
+ * @param {function} onClick - Optional click handler
+ */
+export default function Logo({ 
+  variant = 'header',
+  size,
+  showText = true,
+  linkTo,
+  textColor,
+  onClick,
+  className = ''
+}) {
+  // Default sizes based on variant
+  const defaultSize = {
+    header: 40,
+    sidebar: 40,
+    minimal: 32
+  }[variant] || 40;
+
+  const logoSize = size || defaultSize;
+
+  // Default link destinations
+  const defaultLink = {
+    header: '/',
+    sidebar: '/dashboard',
+    minimal: null
+  }[variant];
+
+  const href = linkTo !== undefined ? linkTo : defaultLink;
+
+  // Default text colors
+  const defaultTextColor = {
+    header: 'text-gray-900',
+    sidebar: 'text-white',
+    minimal: 'text-gray-900'
+  }[variant];
+
+  const textColorClass = textColor || defaultTextColor;
+
+  // Responsive text behavior
+  const shouldShowText = variant === 'minimal' ? false : showText;
+  
+  // Text size based on variant
+  const textSizeClass = {
+    header: 'text-2xl',
+    sidebar: 'text-xl',
+    minimal: 'text-lg'
+  }[variant] || 'text-xl';
+
+  const LogoContent = () => (
+    <div 
+      className={`flex items-center space-x-3 ${className}`}
+      onClick={onClick}
+    >
+      <div className="relative flex-shrink-0">
+        <Image
+          src="/deskai-logo.png"
+          alt="Desk.ai logo"
+          width={logoSize}
+          height={logoSize}
+          className="rounded-lg"
+          priority={variant === 'header'}
+        />
+      </div>
+      {shouldShowText && (
+        <div className="flex items-center space-x-1.5">
+          <span className={`${textSizeClass} font-bold ${textColorClass}`}>
+            Desk.ai
+          </span>
+          {variant === 'sidebar' && (
+            <span className="text-lg">✨</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  // If there's a link, wrap in Link component
+  if (href) {
+    return (
+      <Link href={href} className="inline-block">
+        <LogoContent />
+      </Link>
+    );
+  }
+
+  // Otherwise just return the content
+  return <LogoContent />;
+}

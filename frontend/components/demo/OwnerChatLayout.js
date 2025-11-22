@@ -8,6 +8,7 @@ import { useDemoChat } from './useDemoChat';
 import { BACKEND_URL } from '../../lib/config';
 import BugReportModal from './BugReportModal';
 import ScheduleAppointmentModal from './ScheduleAppointmentModal';
+import Logo from '../Logo';
 
 export default function OwnerChatLayout() {
   const {
@@ -31,9 +32,7 @@ export default function OwnerChatLayout() {
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <Link href="/" className="text-2xl font-bold text-gray-900 hover:text-blue-600 transition-colors">
-              Desk.ai
-            </Link>
+            <Logo variant="header" showText={true} />
             <div className="flex items-center space-x-4">
               <Link href="/" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
                 Back to site

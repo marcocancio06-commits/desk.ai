@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Sidebar from './Sidebar';
 import Footer from '../../../components/ui/Footer';
+import Logo from '../../../components/Logo';
 
 export default function Layout({ children, title, subtitle }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -30,12 +31,7 @@ export default function Layout({ children, title, subtitle }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-sm">
-              <span className="text-white text-sm font-bold">D</span>
-            </div>
-            <span className="text-lg font-bold text-slate-900">Desk.ai</span>
-          </div>
+          <Logo variant="header" showText={true} size={32} linkTo="/dashboard" />
           <div className="w-10" /> {/* Spacer for centering */}
         </div>
         
