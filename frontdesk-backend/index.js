@@ -648,7 +648,7 @@ app.post('/api/appointments', async (req, res) => {
 // PATCH /api/appointments/:id - Update appointment with database + optional calendar sync
 app.patch('/api/appointments/:id', async (req, res) => {
   const { id } = req.params;
-  const { status, scheduledDate, scheduledTime, internalNotes } = req.body;
+  const { status, scheduledDate, scheduledTime, internalNotes, urgency } = req.body;
   
   if (!id) {
     return res.status(400).json({ 
@@ -664,6 +664,7 @@ app.patch('/api/appointments/:id', async (req, res) => {
     if (scheduledDate !== undefined) updates.scheduled_date = scheduledDate;
     if (scheduledTime !== undefined) updates.scheduled_time = scheduledTime;
     if (internalNotes !== undefined) updates.notes = internalNotes;
+    if (urgency !== undefined) updates.urgency = urgency;
     
     // Update in database
     const appointment = await db.updateAppointment(id, updates);

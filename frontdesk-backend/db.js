@@ -305,7 +305,15 @@ async function getAppointmentsByBusiness(businessId, filters = {}) {
 
   let query = supabase
     .from('appointments')
-    .select('*')
+    .select(`
+      *,
+      leads (
+        phone,
+        issue_summary,
+        zip_code,
+        urgency
+      )
+    `)
     .eq('business_id', businessId)
     .order('scheduled_date', { ascending: true });
 
@@ -322,7 +330,21 @@ async function getAppointmentsByBusiness(businessId, filters = {}) {
   const { data, error } = await query;
 
   if (error) throw error;
-  return data || [];
+  
+  // Flatten the joined lead data into the appointment object
+  const flattenedData = (data || []).map(apt => {
+    const lead = apt.leads;
+    delete apt.leads;
+    return {
+      ...apt,
+      customer_phone: lead?.phone,
+      issue_summary: lead?.issue_summary,
+      zip_code: lead?.zip_code,
+      urgency: lead?.urgency
+    };
+  });
+  
+  return flattenedData;
 }
 
 async function updateAppointment(appointmentId, updates) {
