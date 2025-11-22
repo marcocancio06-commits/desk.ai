@@ -721,6 +721,19 @@ app.patch('/api/appointments/:id', async (req, res) => {
 app.get('/api/google/status', async (req, res) => {
   const businessId = req.query.businessId || 'demo-business-001';
   
+  // Check if OAuth is configured first
+  if (!googleCalendarOAuth.isConfigured()) {
+    // Return a clean "coming soon" response instead of error
+    return res.status(200).json({ 
+      ok: true, 
+      data: { 
+        connected: false, 
+        comingSoon: true,
+        message: 'Google Calendar sync is coming soon'
+      }
+    });
+  }
+  
   try {
     const status = await googleCalendarOAuth.getConnectionStatus(businessId);
     res.status(200).json({ ok: true, data: status });
@@ -741,17 +754,12 @@ app.get('/api/google/connect', (req, res) => {
   
   // Check if OAuth is configured
   if (!googleCalendarOAuth.isConfigured()) {
-    console.error('❌ Google Calendar OAuth is not configured!');
-    console.error('   Missing environment variables. Please set:');
-    console.error('   - GOOGLE_OAUTH_CLIENT_ID');
-    console.error('   - GOOGLE_OAUTH_CLIENT_SECRET');
-    console.error('   - GOOGLE_OAUTH_REDIRECT_URI');
+    console.log('ℹ️  Google Calendar OAuth is not configured (feature coming soon)');
     
-    return res.status(503).json({ 
+    return res.status(200).json({ 
       ok: false,
-      error: 'Google Calendar is not configured on the server. Please contact your administrator.',
-      details: 'Missing OAuth credentials in server environment',
-      code: 'OAUTH_NOT_CONFIGURED'
+      error: 'Google Calendar sync is coming soon. For now, use Desk.ai to track leads and appointments manually.',
+      code: 'FEATURE_COMING_SOON'
     });
   }
   

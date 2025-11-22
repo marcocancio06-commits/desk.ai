@@ -54,9 +54,14 @@ export default function Settings() {
       
       if (data.ok) {
         setCalendarStatus(data.data);
+      } else {
+        // If server returns not configured, treat as "coming soon"
+        setCalendarStatus({ connected: false, comingSoon: true });
       }
     } catch (error) {
       console.error('Error fetching calendar status:', error);
+      // On error, treat as "coming soon"
+      setCalendarStatus({ connected: false, comingSoon: true });
     } finally {
       setLoadingCalendar(false);
     }
@@ -66,52 +71,13 @@ export default function Settings() {
     fetchCalendarStatus();
   }, []);
 
-  // Connect Google Calendar
+  // Connect Google Calendar - Disabled for demo
   const handleConnect = async () => {
-    setConnecting(true);
-    setMessage(null);
-
-    try {
-      console.log('🔗 Initiating Google Calendar connection...');
-      
-      const response = await fetch(
-        `http://localhost:3001/api/google/connect?businessId=${businessId}`
-      );
-      const data = await response.json();
-
-      console.log('Response from /api/google/connect:', data);
-
-      if (data.ok && data.authUrl) {
-        console.log('✅ Auth URL received, redirecting to Google...');
-        window.location.href = data.authUrl;
-      } else {
-        // Show specific error from server
-        let errorMessage = 'Failed to initiate Google Calendar connection';
-        
-        if (data.code === 'OAUTH_NOT_CONFIGURED') {
-          errorMessage = 'Google Calendar is not configured on the server. Please contact your administrator to set up OAuth credentials.';
-        } else if (data.error) {
-          errorMessage = data.error;
-        }
-        
-        if (data.details) {
-          console.error('❌ Server error details:', data.details);
-        }
-        if (data.missingVars) {
-          console.error('❌ Missing environment variables:', data.missingVars);
-        }
-        
-        setMessage({ type: 'error', text: errorMessage });
-        setConnecting(false);
-      }
-    } catch (error) {
-      console.error('❌ Error connecting calendar:', error);
-      setMessage({ 
-        type: 'error', 
-        text: 'Network error: Could not connect to the server. Please make sure the backend is running.' 
-      });
-      setConnecting(false);
-    }
+    // Do nothing - feature is coming soon
+    setMessage({ 
+      type: 'info', 
+      text: 'Google Calendar sync is coming soon. For now, use Desk.ai to track leads and appointments manually.' 
+    });
   };
 
   // Disconnect Google Calendar
@@ -195,11 +161,13 @@ export default function Settings() {
           <div className={`p-4 rounded-xl border-2 ${
             message.type === 'success' 
               ? 'bg-green-50 text-green-800 border-green-200' 
+              : message.type === 'info'
+              ? 'bg-blue-50 text-blue-800 border-blue-200'
               : 'bg-red-50 text-red-800 border-red-200'
           }`}>
             <div className="flex items-center">
               <span className="text-lg mr-2">
-                {message.type === 'success' ? '✅' : '❌'}
+                {message.type === 'success' ? '✅' : message.type === 'info' ? 'ℹ️' : '❌'}
               </span>
               <p className="font-medium">{message.text}</p>
             </div>
@@ -362,9 +330,11 @@ export default function Settings() {
                       Connected
                     </span>
                   ) : (
-                    <span className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-bold bg-gray-100 text-gray-700 border-2 border-gray-200">
-                      <span className="w-2 h-2 bg-gray-400 rounded-full mr-2"></span>
-                      Not Connected
+                    <span className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-bold bg-blue-100 text-blue-700 border-2 border-blue-200">
+                      <svg className="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                      </svg>
+                      Coming Soon
                     </span>
                   )}
                 </div>
@@ -458,46 +428,84 @@ export default function Settings() {
                 </div>
               </div>
             ) : (
-              // Not Connected State  
+              // Not Connected State - Coming Soon
               <div className="text-center py-8">
+                {/* Coming Soon Badge */}
+                <div className="inline-flex items-center px-4 py-2 rounded-full text-sm font-bold bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 border-2 border-blue-200 mb-4">
+                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                  </svg>
+                  Coming Soon
+                </div>
+
                 <svg className="mx-auto h-16 w-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
                 
                 <h3 className="mt-4 text-lg font-bold text-slate-900">
-                  No calendar connected
+                  Google Calendar Sync
                 </h3>
                 
-                <p className="mt-2 text-sm text-slate-600 max-w-md mx-auto">
-                  Connect your Google Calendar to automatically sync appointments, 
-                  detect conflicts, and keep everything in one place.
-                </p>
+                {/* Info Banner */}
+                <div className="mt-4 max-w-md mx-auto bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+                  <div className="flex items-start">
+                    <svg className="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                    <p className="text-sm text-blue-800 text-left font-medium">
+                      Google Calendar sync is coming soon. For now, use Desk.ai to track leads and appointments manually.
+                    </p>
+                  </div>
+                </div>
 
+                {/* Upcoming Features */}
+                <div className="mt-6 bg-slate-50 rounded-xl p-5 border-2 border-slate-200 max-w-md mx-auto">
+                  <h4 className="text-sm font-bold text-slate-700 mb-3 text-left">Planned Features:</h4>
+                  <ul className="text-sm text-slate-600 space-y-2.5 text-left">
+                    <li className="flex items-start">
+                      <svg className="w-5 h-5 mr-2.5 text-slate-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span>Automatically push appointments to Google Calendar</span>
+                    </li>
+                    <li className="flex items-start">
+                      <svg className="w-5 h-5 mr-2.5 text-slate-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span>Detect scheduling conflicts with existing events</span>
+                    </li>
+                    <li className="flex items-start">
+                      <svg className="w-5 h-5 mr-2.5 text-slate-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span>Two-way sync with automatic updates</span>
+                    </li>
+                    <li className="flex items-start">
+                      <svg className="w-5 h-5 mr-2.5 text-slate-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span>Send calendar invites to customers</span>
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Disabled Connect Button */}
                 <div className="mt-6">
                   <button
                     onClick={handleConnect}
-                    disabled={connecting}
-                    className="inline-flex items-center px-8 py-4 border-2 border-transparent text-base font-bold rounded-xl shadow-lg text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    className="inline-flex items-center px-8 py-4 border-2 border-slate-300 text-base font-bold rounded-xl shadow-sm text-slate-500 bg-slate-100 cursor-not-allowed transition-all"
+                    disabled
                   >
-                    {connecting ? (
-                      <>
-                        <div className="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"></div>
-                        Connecting...
-                      </>
-                    ) : (
-                      <>
-                        <svg className="mr-3 h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V9h14v10z"/>
-                        </svg>
-                        Connect Google Calendar
-                      </>
-                    )}
+                    <svg className="mr-3 h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V9h14v10z"/>
+                    </svg>
+                    Feature Coming Soon
                   </button>
                 </div>
 
-                <div className="mt-4 text-xs text-slate-500">
-                  <p>🔒 Secure OAuth 2.0 authentication</p>
-                </div>
+                <p className="mt-4 text-xs text-slate-500">
+                  In the meantime, all appointments are securely stored in your Desk.ai dashboard
+                </p>
               </div>
             )}
           </div>
