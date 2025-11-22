@@ -3,6 +3,7 @@ import Layout from './components/Layout';
 import EmptyState from '../../components/ui/EmptyState';
 import LeadTable from './components/LeadTable';
 import LeadDetailPanel from '../../components/dashboard/LeadDetailPanel';
+import QuickActionsBar from '../../components/ui/QuickActionsBar';
 import { BACKEND_URL, DEFAULT_BUSINESS_ID } from '../../lib/config';
 
 export default function Leads() {
@@ -122,8 +123,34 @@ export default function Leads() {
         </div>
       </div>
       
-      {/* Enhanced Pill Filter Tabs with Status Indicators */}
-      <div className="mb-8">
+      {/* Quick Actions */}
+      <QuickActionsBar 
+        actions={[
+          {
+            label: 'Create Manual Lead',
+            onClick: () => alert('Manual lead creation coming soon!'),
+            variant: 'primary',
+            icon: (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            )
+          },
+          {
+            label: 'Try Demo Chat',
+            onClick: () => window.location.href = '/demo-chat',
+            variant: 'secondary',
+            icon: (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+            )
+          }
+        ]}
+      />
+      
+      {/* Sticky Enhanced Pill Filter Tabs */}
+      <div className="sticky top-0 bg-white/95 backdrop-blur-md z-10 -mx-8 px-8 py-4 mb-6 border-b border-slate-200 shadow-sm">
         <div className="flex flex-wrap gap-3">
           {filters.map(({ key, label, count }) => {
             const colorMap = {

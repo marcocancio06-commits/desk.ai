@@ -3,7 +3,7 @@ import Layout from './components/Layout';
 import MetricCard from '../../components/ui/StatCard';
 import EmptyState from '../../components/ui/EmptyState';
 import QuickActionCard from '../../components/ui/QuickActionCard';
-import LeadTable from './components/LeadTable';
+import RecentActivityTimeline from '../../components/dashboard/RecentActivityTimeline';
 import { BACKEND_URL, DEFAULT_BUSINESS_ID } from '../../lib/config';
 
 export default function Dashboard() {
@@ -166,38 +166,50 @@ export default function Dashboard() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-xl font-semibold text-slate-900 mb-1">Recent Activity</h2>
-            <p className="text-sm text-slate-500">Latest customer interactions</p>
+            <p className="text-sm text-slate-500">Latest events and updates</p>
           </div>
           <a href="/dashboard/leads" className="text-sm text-blue-600 hover:text-blue-700 font-semibold transition-colors flex items-center">
-            View all
+            View all leads
             <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </a>
         </div>
         {recentLeads.length > 0 ? (
-          <LeadTable leads={recentLeads} />
+          <RecentActivityTimeline leads={recentLeads} />
         ) : (
-          <EmptyState
-            icon={
-              <svg className="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-              </svg>
-            }
-            title="No leads yet"
-            subtitle="Use the demo chat to generate your first lead"
-            action={
-              <a
-                href="/demo-chat"
-                className="inline-flex items-center px-6 py-3 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
-              >
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-2xl border-2 border-dashed border-slate-300 p-12">
+            <div className="text-center max-w-md mx-auto">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white shadow-lg mb-4">
+                <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
-                Try Demo Chat
-              </a>
-            }
-          />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">No activity yet</h3>
+              <p className="text-sm text-slate-600 mb-4">
+                Get started by trying the demo chat to see how Desk.ai handles customer conversations
+              </p>
+              <div className="inline-flex items-center space-x-2 text-xs text-slate-500 mb-6">
+                <span className="inline-flex items-center px-3 py-1 rounded-full bg-white border border-slate-200">
+                  <svg className="w-3.5 h-3.5 mr-1.5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                  </svg>
+                  Demo: 3 conversations yesterday
+                </span>
+              </div>
+              <div>
+                <a
+                  href="/demo-chat"
+                  className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  Try Demo Chat
+                </a>
+              </div>
+            </div>
+          </div>
         )}
       </div>
       

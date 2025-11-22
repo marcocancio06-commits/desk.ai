@@ -3,6 +3,7 @@ import Layout from './components/Layout';
 import EmptyState from '../../components/ui/EmptyState';
 import StatusPill from '../../components/ui/StatusPill';
 import UrgencyBadge from '../../components/ui/UrgencyBadge';
+import QuickActionsBar from '../../components/ui/QuickActionsBar';
 import { BACKEND_URL } from '../../lib/config';
 
 export default function Calendar() {
@@ -186,6 +187,22 @@ export default function Calendar() {
         </div>
       </div>
       
+      {/* Quick Actions */}
+      <QuickActionsBar 
+        actions={[
+          {
+            label: 'Create Manual Appointment',
+            onClick: () => alert('Manual appointment creation coming soon!'),
+            variant: 'primary',
+            icon: (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            )
+          }
+        ]}
+      />
+      
       {/* Enhanced Pill Filter Tabs */}
       <div className="mb-8">
         <div className="flex flex-wrap gap-3">
@@ -272,17 +289,17 @@ export default function Calendar() {
         <div className="space-y-10">
           {sortedDateKeys.map(dateKey => (
             <div key={dateKey} className="animate-fadeIn">
-              <div className="flex items-center mb-5">
-                <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 text-blue-700 text-sm font-bold rounded-xl shadow-sm">
+              <div className="flex items-center mb-6">
+                <div className="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-sm font-bold rounded-xl shadow-md">
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                   {dateKey}
-                  <span className="ml-2 px-2 py-0.5 bg-blue-600 text-white rounded-full text-xs">
+                  <span className="ml-2.5 px-2 py-0.5 bg-white/30 rounded-full text-xs font-bold">
                     {groupedAppointments[dateKey].length}
                   </span>
                 </div>
-                <div className="flex-1 ml-4 h-px bg-gradient-to-r from-slate-300 to-transparent"></div>
+                <div className="flex-1 ml-4 h-0.5 bg-gradient-to-r from-blue-200 via-indigo-100 to-transparent"></div>
               </div>
               <div className="space-y-4">
                 {groupedAppointments[dateKey].map(apt => (

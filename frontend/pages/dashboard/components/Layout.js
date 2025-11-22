@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Sidebar from './Sidebar';
+import Footer from '../../../components/ui/Footer';
 
 export default function Layout({ children, title, subtitle }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -42,6 +43,7 @@ export default function Layout({ children, title, subtitle }) {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             {children}
           </div>
+          <Footer />
         </main>
       </div>
     </div>
