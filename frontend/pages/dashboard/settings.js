@@ -72,20 +72,44 @@ export default function Settings() {
     setMessage(null);
 
     try {
+      console.log('🔗 Initiating Google Calendar connection...');
+      
       const response = await fetch(
         `http://localhost:3001/api/google/connect?businessId=${businessId}`
       );
       const data = await response.json();
 
+      console.log('Response from /api/google/connect:', data);
+
       if (data.ok && data.authUrl) {
+        console.log('✅ Auth URL received, redirecting to Google...');
         window.location.href = data.authUrl;
       } else {
-        setMessage({ type: 'error', text: 'Failed to initiate Google Calendar connection' });
+        // Show specific error from server
+        let errorMessage = 'Failed to initiate Google Calendar connection';
+        
+        if (data.code === 'OAUTH_NOT_CONFIGURED') {
+          errorMessage = 'Google Calendar is not configured on the server. Please contact your administrator to set up OAuth credentials.';
+        } else if (data.error) {
+          errorMessage = data.error;
+        }
+        
+        if (data.details) {
+          console.error('❌ Server error details:', data.details);
+        }
+        if (data.missingVars) {
+          console.error('❌ Missing environment variables:', data.missingVars);
+        }
+        
+        setMessage({ type: 'error', text: errorMessage });
         setConnecting(false);
       }
     } catch (error) {
-      console.error('Error connecting calendar:', error);
-      setMessage({ type: 'error', text: 'An error occurred while connecting' });
+      console.error('❌ Error connecting calendar:', error);
+      setMessage({ 
+        type: 'error', 
+        text: 'Network error: Could not connect to the server. Please make sure the backend is running.' 
+      });
       setConnecting(false);
     }
   };

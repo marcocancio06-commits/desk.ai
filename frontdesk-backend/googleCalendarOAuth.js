@@ -21,9 +21,47 @@ const SCOPES = [
 ];
 
 // ============================================================================
+// VALIDATE OAUTH CONFIGURATION
+// ============================================================================
+function validateOAuthConfig() {
+  const missing = [];
+  
+  if (!OAUTH_CONFIG.clientId) {
+    missing.push('GOOGLE_OAUTH_CLIENT_ID');
+  }
+  if (!OAUTH_CONFIG.clientSecret) {
+    missing.push('GOOGLE_OAUTH_CLIENT_SECRET');
+  }
+  if (!OAUTH_CONFIG.redirectUri) {
+    missing.push('GOOGLE_OAUTH_REDIRECT_URI');
+  }
+  
+  if (missing.length > 0) {
+    const error = new Error(
+      `Google Calendar is not configured. Missing environment variables: ${missing.join(', ')}. ` +
+      `Please set these in your .env file to enable Google Calendar integration.`
+    );
+    error.code = 'OAUTH_NOT_CONFIGURED';
+    error.missingVars = missing;
+    throw error;
+  }
+  
+  return true;
+}
+
+// ============================================================================
+// CHECK IF OAUTH IS CONFIGURED
+// ============================================================================
+function isConfigured() {
+  return !!(OAUTH_CONFIG.clientId && OAUTH_CONFIG.clientSecret && OAUTH_CONFIG.redirectUri);
+}
+
+// ============================================================================
 // CREATE OAUTH CLIENT
 // ============================================================================
 function createOAuthClient() {
+  validateOAuthConfig();
+  
   return new google.auth.OAuth2(
     OAUTH_CONFIG.clientId,
     OAUTH_CONFIG.clientSecret,
@@ -35,14 +73,28 @@ function createOAuthClient() {
 // GENERATE AUTH URL
 // ============================================================================
 function getAuthUrl(businessId) {
-  const oAuth2Client = createOAuthClient();
-  
-  return oAuth2Client.generateAuthUrl({
-    access_type: 'offline',
-    scope: SCOPES,
-    state: businessId, // Pass businessId in state parameter
-    prompt: 'consent' // Force consent to get refresh token
-  });
+  try {
+    validateOAuthConfig();
+    
+    const oAuth2Client = createOAuthClient();
+    
+    const authUrl = oAuth2Client.generateAuthUrl({
+      access_type: 'offline',
+      scope: SCOPES,
+      state: businessId, // Pass businessId in state parameter
+      prompt: 'consent' // Force consent to get refresh token
+    });
+    
+    console.log(`✅ Generated Google OAuth URL for business: ${businessId}`);
+    return authUrl;
+    
+  } catch (error) {
+    console.error('❌ Error generating auth URL:', error.message);
+    if (error.code === 'OAUTH_NOT_CONFIGURED') {
+      console.error('   Missing env vars:', error.missingVars.join(', '));
+    }
+    throw error;
+  }
 }
 
 // ============================================================================
@@ -491,5 +543,7 @@ module.exports = {
   pullEventsFromCalendar,
   detectConflicts,
   syncCalendar,
-  getConnectionStatus
+  getConnectionStatus,
+  isConfigured,
+  validateOAuthConfig
 };

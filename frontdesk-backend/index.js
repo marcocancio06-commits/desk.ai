@@ -737,17 +737,51 @@ app.get('/api/google/status', async (req, res) => {
 app.get('/api/google/connect', (req, res) => {
   const businessId = req.query.businessId || 'demo-business-001';
   
+  console.log(`🔗 Google Calendar connect request for business: ${businessId}`);
+  
+  // Check if OAuth is configured
+  if (!googleCalendarOAuth.isConfigured()) {
+    console.error('❌ Google Calendar OAuth is not configured!');
+    console.error('   Missing environment variables. Please set:');
+    console.error('   - GOOGLE_OAUTH_CLIENT_ID');
+    console.error('   - GOOGLE_OAUTH_CLIENT_SECRET');
+    console.error('   - GOOGLE_OAUTH_REDIRECT_URI');
+    
+    return res.status(503).json({ 
+      ok: false,
+      error: 'Google Calendar is not configured on the server. Please contact your administrator.',
+      details: 'Missing OAuth credentials in server environment',
+      code: 'OAUTH_NOT_CONFIGURED'
+    });
+  }
+  
   try {
     const authUrl = googleCalendarOAuth.getAuthUrl(businessId);
+    console.log(`✅ Generated auth URL for business: ${businessId}`);
+    
     res.status(200).json({ 
       ok: true,
       authUrl 
     });
   } catch (error) {
-    console.error('Error generating auth URL:', error);
+    console.error('❌ Error generating auth URL:', error.message);
+    console.error('   Error details:', error);
+    
+    // Check if it's a configuration error
+    if (error.code === 'OAUTH_NOT_CONFIGURED') {
+      return res.status(503).json({ 
+        ok: false,
+        error: 'Google Calendar is not configured on the server',
+        details: error.message,
+        missingVars: error.missingVars,
+        code: 'OAUTH_NOT_CONFIGURED'
+      });
+    }
+    
     res.status(500).json({ 
       ok: false,
-      error: error.message 
+      error: 'Failed to initiate Google Calendar connection',
+      details: error.message 
     });
   }
 });
@@ -935,7 +969,17 @@ function startAutoSync() {
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📊 Database: ${supabase ? '✅ Connected' : '⚠️  Not configured (set SUPABASE_URL and SUPABASE_ANON_KEY)'}`);
-  console.log(`📅 Google Calendar: ${isCalendarEnabled() ? '✅ Enabled' : '⚠️  Not configured'}`);
+  
+  // Check Google Calendar OAuth configuration
+  if (googleCalendarOAuth.isConfigured()) {
+    console.log(`📅 Google Calendar OAuth: ✅ Configured`);
+    console.log(`   Client ID: ${process.env.GOOGLE_OAUTH_CLIENT_ID?.substring(0, 20)}...`);
+    console.log(`   Redirect URI: ${process.env.GOOGLE_OAUTH_REDIRECT_URI}`);
+  } else {
+    console.log(`📅 Google Calendar OAuth: ⚠️  Not configured`);
+    console.log(`   To enable: Add GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, and GOOGLE_OAUTH_REDIRECT_URI to .env`);
+    console.log(`   See GOOGLE_CALENDAR_SETUP.md for instructions`);
+  }
   
   // Start auto-sync if OAuth is configured
   startAutoSync();
