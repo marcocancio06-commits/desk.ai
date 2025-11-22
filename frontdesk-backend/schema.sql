@@ -87,10 +87,6 @@ CREATE TABLE IF NOT EXISTS appointments (
   scheduled_date DATE NOT NULL,
   scheduled_time VARCHAR(50),
   status VARCHAR(50) DEFAULT 'pending', -- pending, confirmed, completed, cancelled
-  issue_summary TEXT,
-  zip_code VARCHAR(10),
-  urgency VARCHAR(20),
-  customer_phone VARCHAR(20),
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -195,12 +191,14 @@ FROM leads l
 LEFT JOIN messages m ON m.lead_id = l.id
 GROUP BY l.id;
 
--- View for upcoming appointments
+-- View for upcoming appointments with lead details
 CREATE OR REPLACE VIEW upcoming_appointments AS
 SELECT 
   a.*,
   l.phone as customer_phone,
-  l.issue_summary as lead_issue,
+  l.issue_summary,
+  l.zip_code,
+  l.urgency,
   l.internal_notes as lead_notes
 FROM appointments a
 JOIN leads l ON l.id = a.lead_id
