@@ -2,63 +2,76 @@ import { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import EmptyState from '../../components/ui/EmptyState';
 import LeadTable from './components/LeadTable';
-import LeadDetailPanel from '../../components/dashboard/LeadDetailPanel';
+import LeadDetailModal from './components/LeadDetailModal';
 import QuickActionsBar from '../../components/ui/QuickActionsBar';
+import { RefreshCw, Filter } from 'lucide-react';
 import { BACKEND_URL, DEFAULT_BUSINESS_ID } from '../../lib/config';
 
 export default function Leads() {
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all');
+  const [tagFilter, setTagFilter] = useState('all');
   const [selectedLeadId, setSelectedLeadId] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
   
+  const fetchLeads = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/leads?businessId=${DEFAULT_BUSINESS_ID}`);
+      if (!res.ok) {
+        throw new Error(`Failed to fetch leads: ${res.status}`);
+      }
+      const data = await res.json();
+      setLeads(data.leads || []);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching leads:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
   useEffect(() => {
-    // Fetch leads from backend API
-    fetch(`${BACKEND_URL}/api/leads?businessId=${DEFAULT_BUSINESS_ID}`)
-      .then(res => {
-        if (!res.ok) {
-          throw new Error(`Failed to fetch leads: ${res.status}`);
-        }
-        return res.json();
-      })
-      .then(data => {
-        setLeads(data.leads || []);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error('Error fetching leads:', err);
-        setError(err.message);
-        setLoading(false);
-      });
+    fetchLeads();
   }, []);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchLeads();
+  };
   
-  // Filter leads based on selected filter
-  const filteredLeads = filter === 'all' 
+  // Get all unique tags from leads
+  const allTags = [...new Set(leads.flatMap(lead => lead.tags || []))];
+  
+  // Filter leads based on selected status and tag filters
+  let filteredLeads = filter === 'all' 
     ? leads 
     : leads.filter(lead => lead.status === filter);
-  
-  // Get selected lead object
-  const selectedLead = selectedLeadId 
-    ? leads.find(lead => lead.id === selectedLeadId)
-    : null;
-  
-  // Handle lead update from detail panel
-  const handleLeadUpdate = (updatedLead) => {
-    setLeads(prevLeads => 
-      prevLeads.map(lead => 
-        lead.id === updatedLead.id ? updatedLead : lead
-      )
+
+  if (tagFilter !== 'all') {
+    filteredLeads = filteredLeads.filter(lead => 
+      (lead.tags || []).includes(tagFilter)
     );
+  }
+  
+  // Handle lead update from modal
+  const handleLeadUpdate = () => {
+    fetchLeads();
   };
   
-  // Handle row click to open detail panel
+  // Handle row click to open modal
   const handleLeadClick = (leadId) => {
     setSelectedLeadId(leadId);
+    setModalOpen(true);
   };
   
-  // Handle closing detail panel
-  const handleClosePanel = () => {
+  // Handle closing modal
+  const handleCloseModal = () => {
+    setModalOpen(false);
     setSelectedLeadId(null);
   };
   
@@ -117,9 +130,19 @@ export default function Leads() {
     <Layout>
       {/* Gradient Header */}
       <div className="bg-gradient-to-r from-blue-50 via-white to-blue-50 -m-8 p-8 mb-8 border-b border-slate-200">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Leads</h1>
-          <p className="text-slate-600">Manage customer inquiries and pipeline</p>
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">Leads</h1>
+            <p className="text-slate-600">Manage customer inquiries and pipeline</p>
+          </div>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Refreshing...' : 'Refresh'}
+          </button>
         </div>
       </div>
       
@@ -149,9 +172,9 @@ export default function Leads() {
         ]}
       />
       
-      {/* Sticky Enhanced Pill Filter Tabs */}
+      {/* Status Filter Tabs */}
       <div className="sticky top-0 bg-white/95 backdrop-blur-md z-10 -mx-8 px-8 py-4 mb-6 border-b border-slate-200 shadow-sm">
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-3 mb-4">
           {filters.map(({ key, label, count }) => {
             const colorMap = {
               all: 'text-slate-700',
@@ -195,6 +218,39 @@ export default function Leads() {
             );
           })}
         </div>
+
+        {/* Tag Filter */}
+        {allTags.length > 0 && (
+          <div className="flex items-center gap-3">
+            <Filter className="w-4 h-4 text-gray-500" />
+            <span className="text-sm font-medium text-gray-700">Tags:</span>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setTagFilter('all')}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                  tagFilter === 'all'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                All
+              </button>
+              {allTags.map(tag => (
+                <button
+                  key={tag}
+                  onClick={() => setTagFilter(tag)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                    tagFilter === tag
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                  }`}
+                >
+                  {tag.replace(/_/g, ' ')}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       
       {/* Leads Table */}
@@ -207,12 +263,12 @@ export default function Leads() {
           }
           title="No leads found"
           subtitle={
-            filter === 'all' 
+            filter === 'all' && tagFilter === 'all'
               ? 'No leads have been generated yet. Use the demo chat to create your first lead.' 
-              : `No leads with status "${filter.replace('_', ' ')}".`
+              : `No leads matching selected filters.`
           }
           action={
-            filter === 'all' ? (
+            filter === 'all' && tagFilter === 'all' ? (
               <a
                 href="/demo-chat"
                 className="inline-flex items-center px-6 py-3 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
@@ -224,10 +280,13 @@ export default function Leads() {
               </a>
             ) : (
               <button
-                onClick={() => setFilter('all')}
+                onClick={() => {
+                  setFilter('all');
+                  setTagFilter('all');
+                }}
                 className="inline-flex items-center px-6 py-3 bg-slate-600 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
               >
-                View all leads
+                Clear all filters
               </button>
             )
           }
@@ -236,14 +295,13 @@ export default function Leads() {
         <LeadTable leads={filteredLeads} onLeadClick={handleLeadClick} />
       )}
       
-      {/* Lead Detail Panel */}
-      {selectedLead && (
-        <LeadDetailPanel 
-          lead={selectedLead}
-          onClose={handleClosePanel}
-          onUpdate={handleLeadUpdate}
-        />
-      )}
+      {/* Lead Detail Modal */}
+      <LeadDetailModal 
+        leadId={selectedLeadId}
+        isOpen={modalOpen}
+        onClose={handleCloseModal}
+        onUpdate={handleLeadUpdate}
+      />
     </Layout>
   );
 }

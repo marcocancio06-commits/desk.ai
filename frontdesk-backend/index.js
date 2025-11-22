@@ -274,6 +274,154 @@ app.patch('/api/leads/:id', async (req, res) => {
   }
 });
 
+// Get lead timeline (events + messages)
+app.get('/api/leads/:id/timeline', async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const timeline = await db.getLeadTimeline(id);
+    res.status(200).json({ timeline });
+  } catch (error) {
+    console.error('Error fetching lead timeline:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch lead timeline',
+      details: error.message
+    });
+  }
+});
+
+// Get lead events only
+app.get('/api/leads/:id/events', async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const events = await db.getLeadEvents(id);
+    res.status(200).json({ events });
+  } catch (error) {
+    console.error('Error fetching lead events:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch lead events',
+      details: error.message
+    });
+  }
+});
+
+// Update lead status with event tracking
+app.post('/api/leads/:id/status', async (req, res) => {
+  const { id } = req.params;
+  const { status, createdBy = 'user' } = req.body;
+  
+  if (!status) {
+    return res.status(400).json({ error: 'Status is required' });
+  }
+  
+  try {
+    const updatedLead = await db.updateLeadStatus(id, status, createdBy);
+    res.status(200).json({ 
+      lead: updatedLead,
+      message: 'Status updated successfully'
+    });
+  } catch (error) {
+    console.error('Error updating lead status:', error);
+    res.status(500).json({ 
+      error: 'Failed to update lead status',
+      details: error.message
+    });
+  }
+});
+
+// Add note to lead
+app.post('/api/leads/:id/notes', async (req, res) => {
+  const { id } = req.params;
+  const { note, createdBy = 'user' } = req.body;
+  
+  if (!note || !note.trim()) {
+    return res.status(400).json({ error: 'Note is required' });
+  }
+  
+  try {
+    const updatedLead = await db.addLeadNote(id, note.trim(), createdBy);
+    res.status(200).json({ 
+      lead: updatedLead,
+      message: 'Note added successfully'
+    });
+  } catch (error) {
+    console.error('Error adding note:', error);
+    res.status(500).json({ 
+      error: 'Failed to add note',
+      details: error.message
+    });
+  }
+});
+
+// Add tag to lead
+app.post('/api/leads/:id/tags', async (req, res) => {
+  const { id } = req.params;
+  const { tag, createdBy = 'user' } = req.body;
+  
+  if (!tag || !tag.trim()) {
+    return res.status(400).json({ error: 'Tag is required' });
+  }
+  
+  try {
+    const updatedLead = await db.addLeadTag(id, tag.trim(), createdBy);
+    res.status(200).json({ 
+      lead: updatedLead,
+      message: 'Tag added successfully'
+    });
+  } catch (error) {
+    console.error('Error adding tag:', error);
+    res.status(500).json({ 
+      error: 'Failed to add tag',
+      details: error.message
+    });
+  }
+});
+
+// Remove tag from lead
+app.delete('/api/leads/:id/tags/:tag', async (req, res) => {
+  const { id, tag } = req.params;
+  const { createdBy = 'user' } = req.body;
+  
+  try {
+    const updatedLead = await db.removeLeadTag(id, tag, createdBy);
+    res.status(200).json({ 
+      lead: updatedLead,
+      message: 'Tag removed successfully'
+    });
+  } catch (error) {
+    console.error('Error removing tag:', error);
+    res.status(500).json({ 
+      error: 'Failed to remove tag',
+      details: error.message
+    });
+  }
+});
+
+// Update lead fields with event tracking
+app.put('/api/leads/:id', async (req, res) => {
+  const { id } = req.params;
+  const { updates, createdBy = 'user' } = req.body;
+  
+  if (!updates || typeof updates !== 'object') {
+    return res.status(400).json({ error: 'Updates object is required' });
+  }
+  
+  try {
+    const updatedLead = await db.updateLeadWithEvent(id, updates, createdBy);
+    res.status(200).json({ 
+      lead: updatedLead,
+      message: 'Lead updated successfully'
+    });
+  } catch (error) {
+    console.error('Error updating lead:', error);
+    res.status(500).json({ 
+      error: 'Failed to update lead',
+      details: error.message
+    });
+  }
+});
+
 // Bug report endpoint
 app.post('/api/report-bug', async (req, res) => {
   const { message, userEmail, context } = req.body;

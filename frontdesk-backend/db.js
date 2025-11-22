@@ -48,6 +48,9 @@ async function upsertBusinessSettings(businessId, settings) {
 // LEADS
 // ============================================================================
 
+// Helper function declarations first
+let createLeadEvent; // Forward declaration
+
 async function createLead({ businessId, phone, channel = 'sms' }) {
   if (!supabase) {
     throw new Error('Supabase client not initialized');
@@ -60,12 +63,29 @@ async function createLead({ businessId, phone, channel = 'sms' }) {
       phone,
       channel,
       status: 'new',
-      conversation_state: 'initial'
+      conversation_state: 'initial',
+      tags: []
     })
     .select()
     .single();
 
   if (error) throw error;
+
+  // Create "created" event (only if createLeadEvent is available)
+  if (createLeadEvent) {
+    try {
+      await createLeadEvent({
+        leadId: data.id,
+        eventType: 'created',
+        eventData: { phone, channel },
+        description: `Lead created from ${channel}`,
+        createdBy: 'system'
+      });
+    } catch (err) {
+      console.error('Failed to create lead event:', err);
+    }
+  }
+
   return data;
 }
 
@@ -379,6 +399,177 @@ async function updateLeadFromAIResponse(leadId, aiResponse) {
 }
 
 // ============================================================================
+// LEAD EVENTS (Timeline)
+// ============================================================================
+
+createLeadEvent = async function({ leadId, eventType, eventData = {}, description, createdBy = 'system' }) {
+  if (!supabase) {
+    throw new Error('Supabase client not initialized');
+  }
+
+  const { data, error } = await supabase
+    .from('lead_events')
+    .insert({
+      lead_id: leadId,
+      event_type: eventType,
+      event_data: eventData,
+      description,
+      created_by: createdBy
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+async function getLeadEvents(leadId, limit = 100) {
+  if (!supabase) {
+    throw new Error('Supabase client not initialized');
+  }
+
+  const { data, error } = await supabase
+    .from('lead_events')
+    .select('*')
+    .eq('lead_id', leadId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return data || [];
+}
+
+async function getLeadTimeline(leadId) {
+  // Get both events and messages for a complete timeline
+  const [events, messages] = await Promise.all([
+    getLeadEvents(leadId),
+    getMessagesByLead(leadId)
+  ]);
+
+  // Combine and sort by timestamp
+  const timeline = [
+    ...events.map(e => ({ ...e, type: 'event' })),
+    ...messages.map(m => ({ ...m, type: 'message' }))
+  ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+  return timeline;
+}
+
+// ============================================================================
+// LEAD TAGS
+// ============================================================================
+
+async function addLeadTag(leadId, tag, createdBy = 'user') {
+  const lead = await getLeadById(leadId);
+  if (!lead) throw new Error('Lead not found');
+
+  const tags = lead.tags || [];
+  if (tags.includes(tag)) {
+    return lead; // Tag already exists
+  }
+
+  const updatedTags = [...tags, tag];
+  const updatedLead = await updateLead(leadId, { tags: updatedTags });
+
+  // Create event
+  await createLeadEvent({
+    leadId,
+    eventType: 'tag_added',
+    eventData: { tag },
+    description: `Tag "${tag}" added`,
+    createdBy
+  });
+
+  return updatedLead;
+}
+
+async function removeLeadTag(leadId, tag, createdBy = 'user') {
+  const lead = await getLeadById(leadId);
+  if (!lead) throw new Error('Lead not found');
+
+  const tags = lead.tags || [];
+  const updatedTags = tags.filter(t => t !== tag);
+  const updatedLead = await updateLead(leadId, { tags: updatedTags });
+
+  // Create event
+  await createLeadEvent({
+    leadId,
+    eventType: 'tag_removed',
+    eventData: { tag },
+    description: `Tag "${tag}" removed`,
+    createdBy
+  });
+
+  return updatedLead;
+}
+
+// ============================================================================
+// ENHANCED LEAD UPDATES WITH EVENTS
+// ============================================================================
+
+async function updateLeadWithEvent(leadId, updates, createdBy = 'user') {
+  const oldLead = await getLeadById(leadId);
+  if (!oldLead) throw new Error('Lead not found');
+
+  const updatedLead = await updateLead(leadId, updates);
+
+  // Create events for each changed field
+  for (const [field, newValue] of Object.entries(updates)) {
+    const oldValue = oldLead[field];
+    if (oldValue !== newValue && field !== 'updated_at') {
+      await createLeadEvent({
+        leadId,
+        eventType: 'field_updated',
+        eventData: { field, old_value: oldValue, new_value: newValue },
+        description: `${field.replace(/_/g, ' ')} changed from "${oldValue || 'empty'}" to "${newValue}"`,
+        createdBy
+      });
+    }
+  }
+
+  return updatedLead;
+}
+
+async function updateLeadStatus(leadId, newStatus, createdBy = 'user') {
+  const oldLead = await getLeadById(leadId);
+  if (!oldLead) throw new Error('Lead not found');
+
+  const updatedLead = await updateLead(leadId, { status: newStatus });
+
+  await createLeadEvent({
+    leadId,
+    eventType: 'status_updated',
+    eventData: { old_status: oldLead.status, new_status: newStatus },
+    description: `Status changed from "${oldLead.status}" to "${newStatus}"`,
+    createdBy
+  });
+
+  return updatedLead;
+}
+
+async function addLeadNote(leadId, note, createdBy = 'user') {
+  const lead = await getLeadById(leadId);
+  if (!lead) throw new Error('Lead not found');
+
+  const currentNotes = lead.internal_notes || '';
+  const timestamp = new Date().toISOString();
+  const newNote = `\n[${timestamp}] ${note}`;
+  const updatedNotes = currentNotes + newNote;
+
+  const updatedLead = await updateLead(leadId, { internal_notes: updatedNotes });
+
+  await createLeadEvent({
+    leadId,
+    eventType: 'note_added',
+    eventData: { note },
+    description: `Note added: "${note.substring(0, 50)}${note.length > 50 ? '...' : ''}"`,
+    createdBy
+  });
+
+  return updatedLead;
+}
+
+// ============================================================================
 // EXPORTS
 // ============================================================================
 
@@ -396,6 +587,9 @@ module.exports = {
   getLeadStats,
   getOrCreateLead,
   updateLeadFromAIResponse,
+  updateLeadWithEvent,
+  updateLeadStatus,
+  addLeadNote,
   
   // Messages
   createMessage,
@@ -406,5 +600,14 @@ module.exports = {
   createAppointment,
   getAppointmentsByBusiness,
   updateAppointment,
-  deleteAppointment
+  deleteAppointment,
+
+  // Lead Events (Timeline)
+  createLeadEvent,
+  getLeadEvents,
+  getLeadTimeline,
+
+  // Lead Tags
+  addLeadTag,
+  removeLeadTag
 };
