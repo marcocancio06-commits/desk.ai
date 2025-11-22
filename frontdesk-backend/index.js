@@ -3,13 +3,8 @@ const cors = require('cors');
 const nodemailer = require('nodemailer');
 require('dotenv').config();
 const { handleCustomerMessage, generateDailySummary } = require('./aiClient');
-const { upsertLeadFromMessage, getLeadsForBusiness, getLeadStats, getMetricsForPeriods, getAppointments: getLeadsAppointments, updateLeadFields } = require('./leadStore');
-const { 
-  getAppointments, 
-  getAppointmentById, 
-  createAppointment, 
-  updateAppointment 
-} = require('./appointmentsStore');
+const { supabase } = require('./supabaseClient');
+const db = require('./db');
 const { 
   createAppointmentEvent, 
   updateAppointmentEvent,
@@ -26,11 +21,12 @@ app.use(express.json());
 app.get('/health', (req, res) => {
   res.status(200).json({ 
     status: 'ok',
+    database: supabase ? 'connected' : 'not configured',
     timestamp: new Date().toISOString()
   });
 });
 
-// Message handling endpoint
+// Message handling endpoint - Now with database persistence
 app.post('/api/message', async (req, res) => {
   const { businessId, from, channel, message } = req.body;
   
@@ -41,25 +37,34 @@ app.post('/api/message', async (req, res) => {
   }
   
   try {
-    const targetBusinessId = businessId || 'demo-plumbing';
+    const targetBusinessId = businessId || 'demo-business-001';
     const targetFrom = from || 'unknown';
     
-    // Get existing lead to retrieve conversation state
-    const existingLeads = getLeadsForBusiness(targetBusinessId);
-    const existingLead = existingLeads.find(l => l.phone === targetFrom);
+    // Get or create lead
+    const lead = await db.getOrCreateLead(targetBusinessId, targetFrom, channel || 'web');
     
-    // Build conversation state from existing lead
-    let conversationState = null;
-    if (existingLead) {
-      conversationState = {
-        collected_data: {
-          issue_summary: existingLead.issueSummary,
-          zip_code: existingLead.zipCode,
-          preferred_time: existingLead.preferredTime,
-          urgency: existingLead.urgency
-        }
-      };
-    }
+    // Save customer message
+    await db.createMessage({
+      leadId: lead.id,
+      sender: 'customer',
+      text: message,
+      channel: channel || 'web'
+    });
+    
+    // Get conversation history for context
+    const conversationHistory = await db.getConversationHistory(lead.id);
+    
+    // Build conversation state from lead
+    const conversationState = {
+      collected_data: {
+        issue_summary: lead.issue_summary,
+        zip_code: lead.zip_code,
+        preferred_time: lead.preferred_time,
+        urgency: lead.urgency
+      },
+      confidence_scores: lead.confidence_scores || {},
+      state: lead.conversation_state
+    };
     
     // Call AI with conversation state
     const aiResult = await handleCustomerMessage({
@@ -70,35 +75,40 @@ app.post('/api/message', async (req, res) => {
       conversationState
     });
     
-    // Save or update the lead from this conversation
-    const lead = upsertLeadFromMessage({
-      businessId: targetBusinessId,
-      channel: channel || 'web',
-      from: targetFrom,
-      message,
-      aiResult
+    // Save AI response message
+    await db.createMessage({
+      leadId: lead.id,
+      sender: 'ai',
+      text: aiResult.reply,
+      aiData: aiResult,
+      channel: channel || 'web'
     });
+    
+    // Update lead with AI-extracted data
+    const updatedLead = await db.updateLeadFromAIResponse(lead.id, aiResult);
     
     // Return AI result with lead summary
     res.status(200).json({
       ...aiResult,
       lead: {
-        id: lead.id,
-        status: lead.status,
-        updatedAt: lead.updatedAt
+        id: updatedLead.id,
+        status: updatedLead.status,
+        conversation_state: updatedLead.conversation_state,
+        updatedAt: updatedLead.updated_at
       }
     });
   } catch (error) {
     console.error('Error handling message:', error);
     res.status(500).json({ 
-      error: 'Failed to process message' 
+      error: 'Failed to process message',
+      details: error.message
     });
   }
 });
 
-// Get leads for a business
-app.get('/api/leads', (req, res) => {
-  const { businessId } = req.query;
+// Get leads for a business - Now from database
+app.get('/api/leads', async (req, res) => {
+  const { businessId, status, urgency, limit } = req.query;
   
   if (!businessId) {
     return res.status(400).json({ 
@@ -107,35 +117,74 @@ app.get('/api/leads', (req, res) => {
   }
   
   try {
-    const leads = getLeadsForBusiness(businessId);
-    const stats = getLeadStats(businessId);
+    const filters = {};
+    if (status) filters.status = status;
+    if (urgency) filters.urgency = urgency;
+    if (limit) filters.limit = parseInt(limit);
+    
+    const leads = await db.getAllLeads(businessId, filters);
+    const statsToday = await db.getLeadStats(businessId, 0);
+    const statsLast7Days = await db.getLeadStats(businessId, 7);
     
     res.status(200).json({ 
       leads,
-      stats,
+      stats: {
+        today: statsToday,
+        last7Days: statsLast7Days
+      },
       count: leads.length
     });
   } catch (error) {
     console.error('Error fetching leads:', error);
     res.status(500).json({ 
-      error: 'Failed to fetch leads' 
+      error: 'Failed to fetch leads',
+      details: error.message
     });
   }
 });
 
-// Get daily summary with metrics and AI-generated insights
+// Get daily summary with metrics and AI-generated insights - Now from database
 app.get('/api/summary', async (req, res) => {
   const { businessId } = req.query;
   
-  // Default to demo-plumbing if not provided
-  const targetBusinessId = businessId || 'demo-plumbing';
+  // Default to demo-business-001 if not provided
+  const targetBusinessId = businessId || 'demo-business-001';
   
   try {
-    // Get metrics for today and last 7 days
-    const metrics = getMetricsForPeriods(targetBusinessId);
+    // Get metrics for today and last 7 days from database
+    const metricsToday = await db.getLeadStats(targetBusinessId, 0);
+    const metricsLast7Days = await db.getLeadStats(targetBusinessId, 7);
     
-    // Get appointments (qualified or scheduled leads)
-    const appointments = getLeadsAppointments(targetBusinessId);
+    const metrics = {
+      today: metricsToday,
+      last7Days: metricsLast7Days
+    };
+    
+    // Get ready-to-book appointments from database
+    const allAppointments = await db.getAppointmentsByBusiness(targetBusinessId, {
+      status: 'pending'
+    });
+    
+    // Also get qualified leads that could be scheduled
+    const qualifiedLeads = await db.getAllLeads(targetBusinessId, {
+      status: 'ready_to_book',
+      limit: 10
+    });
+    
+    const appointments = [
+      ...allAppointments.map(apt => ({
+        issueSummary: apt.issue_summary,
+        urgency: apt.urgency,
+        scheduledTime: apt.scheduled_time,
+        zipCode: apt.zip_code
+      })),
+      ...qualifiedLeads.map(lead => ({
+        issueSummary: lead.issue_summary,
+        urgency: lead.urgency,
+        scheduledTime: lead.preferred_time,
+        zipCode: lead.zip_code
+      }))
+    ];
     
     // Generate AI summary
     const aiSummary = await generateDailySummary({
@@ -162,14 +211,14 @@ app.get('/api/summary', async (req, res) => {
   } catch (error) {
     console.error('Error generating summary:', error);
     res.status(500).json({ 
-      error: 'Failed to generate summary' 
+      error: 'Failed to generate summary',
+      details: error.message
     });
   }
 });
 
-// Update a lead's fields (status, urgency, scheduledTime, ownerNotes)
-// TODO: Add authentication to verify business owner permissions
-app.patch('/api/leads/:id', (req, res) => {
+// Update a lead's fields - Now using database
+app.patch('/api/leads/:id', async (req, res) => {
   const { id } = req.params;
   const { businessId, status, urgency, scheduledTime, ownerNotes } = req.body;
   
@@ -187,20 +236,20 @@ app.patch('/api/leads/:id', (req, res) => {
   }
   
   try {
-    // Update the lead with provided fields
-    const updatedLead = updateLeadFields({
-      leadId: id,
-      businessId,
-      status,
-      urgency,
-      scheduledTime,
-      ownerNotes
-    });
+    // Build updates object
+    const updates = {};
+    if (status !== undefined) updates.status = status;
+    if (urgency !== undefined) updates.urgency = urgency;
+    if (scheduledTime !== undefined) updates.preferred_time = scheduledTime;
+    if (ownerNotes !== undefined) updates.internal_notes = ownerNotes;
     
-    // Check if lead was found
-    if (!updatedLead) {
-      return res.status(404).json({ 
-        error: 'Lead not found or does not belong to this business' 
+    // Update the lead
+    const updatedLead = await db.updateLead(id, updates);
+    
+    // Verify it belongs to the business
+    if (updatedLead.business_id !== businessId) {
+      return res.status(403).json({
+        error: 'Lead does not belong to this business'
       });
     }
     
@@ -211,8 +260,16 @@ app.patch('/api/leads/:id', (req, res) => {
     });
   } catch (error) {
     console.error('Error updating lead:', error);
+    
+    if (error.message && error.message.includes('not found')) {
+      return res.status(404).json({ 
+        error: 'Lead not found'
+      });
+    }
+    
     res.status(500).json({ 
-      error: 'Failed to update lead' 
+      error: 'Failed to update lead',
+      details: error.message
     });
   }
 });
@@ -305,19 +362,32 @@ app.post('/api/report-bug', async (req, res) => {
 });
 
 // ============================================================================
-// APPOINTMENTS API - Manage jobs/appointments
+// APPOINTMENTS API - Manage jobs/appointments - Now with database persistence
 // ============================================================================
 
 // GET /api/appointments - List appointments with optional filtering
-app.get('/api/appointments', (req, res) => {
-  const { status, urgency } = req.query;
+app.get('/api/appointments', async (req, res) => {
+  const { businessId, status, urgency, startDate, endDate } = req.query;
+  
+  if (!businessId) {
+    return res.status(400).json({
+      ok: false,
+      error: 'businessId query parameter is required'
+    });
+  }
   
   try {
-    const filters = {};
+    const filters = { businessId };
     if (status) filters.status = status;
-    if (urgency) filters.urgency = urgency;
+    if (startDate) filters.startDate = startDate;
+    if (endDate) filters.endDate = endDate;
     
-    const appointments = getAppointments(filters);
+    let appointments = await db.getAppointmentsByBusiness(businessId, filters);
+    
+    // Filter by urgency if provided (client-side for now)
+    if (urgency) {
+      appointments = appointments.filter(apt => apt.urgency === urgency);
+    }
     
     res.status(200).json({ 
       ok: true,
@@ -329,26 +399,36 @@ app.get('/api/appointments', (req, res) => {
     console.error('Error fetching appointments:', error);
     res.status(500).json({ 
       ok: false,
-      error: 'Failed to fetch appointments'
+      error: 'Failed to fetch appointments',
+      details: error.message
     });
   }
 });
 
-// POST /api/appointments - Create new appointment with optional calendar sync
+// POST /api/appointments - Create new appointment with database + optional calendar sync
 app.post('/api/appointments', async (req, res) => {
   const { 
+    businessId,
+    leadId,
     customerPhone, 
     issueSummary, 
     zipCode, 
     preferredTimeText,
-    scheduledStart,
-    scheduledEnd,
+    scheduledDate,
+    scheduledTime,
     urgency,
     sourceChannel,
     internalNotes
   } = req.body;
   
   // Validate required fields
+  if (!businessId) {
+    return res.status(400).json({
+      ok: false,
+      error: 'businessId is required'
+    });
+  }
+  
   if (!customerPhone || !issueSummary) {
     return res.status(400).json({ 
       ok: false,
@@ -357,27 +437,41 @@ app.post('/api/appointments', async (req, res) => {
   }
   
   try {
-    // Create the appointment in our system
-    const appointment = createAppointment({
-      customerPhone,
+    // If no leadId provided, try to find or create lead
+    let finalLeadId = leadId;
+    if (!finalLeadId && customerPhone) {
+      const lead = await db.getOrCreateLead(businessId, customerPhone, sourceChannel || 'manual');
+      finalLeadId = lead.id;
+    }
+    
+    // Create the appointment in database
+    const appointment = await db.createAppointment({
+      leadId: finalLeadId,
+      businessId,
+      scheduledDate: scheduledDate || new Date().toISOString().split('T')[0],
+      scheduledTime: scheduledTime || preferredTimeText,
       issueSummary,
       zipCode,
-      preferredTimeText,
-      scheduledStart,
-      scheduledEnd,
-      urgency,
-      sourceChannel,
-      internalNotes
+      urgency: urgency || 'normal',
+      customerPhone,
+      notes: internalNotes || ''
     });
     
     // Attempt to sync with Google Calendar if enabled and scheduled
     let calendarSynced = false;
-    if (scheduledStart && isCalendarEnabled()) {
+    if (scheduledDate && scheduledTime && isCalendarEnabled()) {
       try {
-        const eventId = await createAppointmentEvent(appointment);
+        const eventId = await createAppointmentEvent({
+          ...appointment,
+          scheduledStart: `${scheduledDate}T${scheduledTime}`,
+          scheduledEnd: `${scheduledDate}T${scheduledTime}` // TODO: Calculate end time
+        });
+        
         if (eventId) {
           // Update appointment with the calendar eventId
-          updateAppointment(appointment.id, { eventId });
+          await db.updateAppointment(appointment.id, { 
+            notes: `${appointment.notes}\nGoogle Calendar Event ID: ${eventId}` 
+          });
           appointment.eventId = eventId;
           calendarSynced = true;
         }
@@ -404,10 +498,10 @@ app.post('/api/appointments', async (req, res) => {
   }
 });
 
-// PATCH /api/appointments/:id - Update appointment with optional calendar sync
+// PATCH /api/appointments/:id - Update appointment with database + optional calendar sync
 app.patch('/api/appointments/:id', async (req, res) => {
   const { id } = req.params;
-  const { status, scheduledStart, scheduledEnd, internalNotes } = req.body;
+  const { status, scheduledDate, scheduledTime, internalNotes } = req.body;
   
   if (!id) {
     return res.status(400).json({ 
@@ -420,18 +514,24 @@ app.patch('/api/appointments/:id', async (req, res) => {
     // Build updates object with only provided fields
     const updates = {};
     if (status !== undefined) updates.status = status;
-    if (scheduledStart !== undefined) updates.scheduledStart = scheduledStart;
-    if (scheduledEnd !== undefined) updates.scheduledEnd = scheduledEnd;
-    if (internalNotes !== undefined) updates.internalNotes = internalNotes;
+    if (scheduledDate !== undefined) updates.scheduled_date = scheduledDate;
+    if (scheduledTime !== undefined) updates.scheduled_time = scheduledTime;
+    if (internalNotes !== undefined) updates.notes = internalNotes;
     
-    // Update in our system
-    const appointment = updateAppointment(id, updates);
+    // Update in database
+    const appointment = await db.updateAppointment(id, updates);
     
-    // Attempt to sync with Google Calendar if enabled and has eventId
+    // Attempt to sync with Google Calendar if enabled
     let calendarSynced = false;
-    if (appointment.eventId && isCalendarEnabled()) {
+    const hasEventId = appointment.notes && appointment.notes.includes('Google Calendar Event ID:');
+    
+    if (hasEventId && isCalendarEnabled()) {
       try {
-        await updateAppointmentEvent(appointment);
+        await updateAppointmentEvent({
+          ...appointment,
+          scheduledStart: `${appointment.scheduled_date}T${appointment.scheduled_time}`,
+          scheduledEnd: `${appointment.scheduled_date}T${appointment.scheduled_time}`
+        });
         calendarSynced = true;
       } catch (calendarError) {
         // Log but don't fail - calendar sync is optional
@@ -450,7 +550,7 @@ app.patch('/api/appointments/:id', async (req, res) => {
   } catch (error) {
     console.error('Error updating appointment:', error);
     
-    if (error.message.includes('not found')) {
+    if (error.message && error.message.includes('not found')) {
       return res.status(404).json({ 
         ok: false,
         error: error.message
@@ -465,5 +565,7 @@ app.patch('/api/appointments/:id', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📊 Database: ${supabase ? '✅ Connected' : '⚠️  Not configured (set SUPABASE_URL and SUPABASE_ANON_KEY)'}`);
+  console.log(`📅 Google Calendar: ${isCalendarEnabled() ? '✅ Enabled' : '⚠️  Not configured'}`);
 });
