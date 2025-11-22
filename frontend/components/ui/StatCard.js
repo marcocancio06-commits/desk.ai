@@ -9,7 +9,7 @@ export default function MetricCard({ title, value, subtitle, icon, color = 'blue
   };
 
   return (
-    <div className="group relative bg-white/90 backdrop-blur-sm border border-slate-200 rounded-2xl p-6 shadow-soft hover:shadow-lifted transition-all duration-300 hover:-translate-y-1 h-full flex flex-col overflow-hidden animate-scaleIn">
+    <div className="group relative bg-white/95 backdrop-blur-sm border border-slate-200/50 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1.5 h-full flex flex-col overflow-hidden animate-scaleIn">
       {/* Subtle gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-white via-transparent to-slate-50/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
       

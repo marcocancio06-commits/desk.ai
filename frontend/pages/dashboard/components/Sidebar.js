@@ -55,29 +55,37 @@ export default function Sidebar({ isOpen, onClose }) {
   return (
     <>
       {/* Desktop Sidebar */}
-      <div className="hidden lg:flex lg:flex-col lg:w-64 bg-slate-900 lg:min-h-screen lg:fixed">
-        {/* Logo */}
-        <div className="p-6 border-b border-slate-800">
-          <Logo variant="sidebar" showText={true} linkTo="/dashboard" />
-          <p className="text-slate-400 text-xs mt-2">Owner Dashboard</p>
+      <div className="hidden lg:flex lg:flex-col lg:w-64 bg-gradient-to-b from-slate-900 to-slate-950 lg:min-h-screen lg:fixed shadow-2xl">
+        {/* Brand Header with Gradient Strip */}
+        <div className="relative bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-6 rounded-br-3xl shadow-lg">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-br-3xl"></div>
+          <div className="relative flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <Logo variant="minimal" showText={false} size={40} linkTo="/dashboard" />
+              <div>
+                <h2 className="text-white font-bold text-lg tracking-tight">Desk.ai</h2>
+                <p className="text-blue-100 text-xs font-medium">Owner Dashboard</p>
+              </div>
+            </div>
+          </div>
         </div>
         
         {/* Navigation */}
-        <nav className="flex-1 px-4 py-6 space-y-2">
+        <nav className="flex-1 px-3 py-6 space-y-1.5">
           {navigation.map((item) => (
             <Link
               key={item.name}
               href={item.href}
-              className={`group relative flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all ${
+              className={`group relative flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
                 isActive(item.href)
-                  ? 'bg-slate-800 text-white'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  ? 'bg-gradient-to-r from-blue-600/20 to-purple-600/20 text-white shadow-lg shadow-blue-500/10'
+                  : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
               }`}
             >
               {isActive(item.href) && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-blue-500 rounded-r-full" />
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-10 bg-gradient-to-b from-blue-500 to-purple-500 rounded-r-full shadow-lg shadow-blue-500/50" />
               )}
-              <span className={`mr-3 ${isActive(item.href) ? 'text-blue-400' : 'text-slate-400 group-hover:text-blue-400'} transition-colors`}>
+              <span className={`mr-3 ${isActive(item.href) ? 'text-blue-400' : 'text-slate-500 group-hover:text-blue-400'} transition-colors duration-200`}>
                 {item.icon}
               </span>
               {item.name}
@@ -105,42 +113,48 @@ export default function Sidebar({ isOpen, onClose }) {
       </div>
       
       {/* Mobile Sidebar */}
-      <div className={`lg:hidden fixed inset-y-0 left-0 z-30 w-64 bg-slate-900 transform transition-transform duration-300 ease-in-out ${
+      <div className={`lg:hidden fixed inset-y-0 left-0 z-30 w-64 bg-gradient-to-b from-slate-900 to-slate-950 shadow-2xl transform transition-transform duration-300 ease-in-out ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
-        {/* Logo */}
-        <div className="p-6 flex items-center justify-between border-b border-slate-800">
-          <div>
-            <Logo variant="sidebar" showText={true} linkTo="/dashboard" onClick={onClose} />
-            <p className="text-slate-400 text-xs mt-2">Owner Dashboard</p>
+        {/* Brand Header with Gradient Strip */}
+        <div className="relative bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-6 rounded-br-3xl shadow-lg">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-br-3xl"></div>
+          <div className="relative flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <Logo variant="minimal" showText={false} size={40} linkTo="/dashboard" onClick={onClose} />
+              <div>
+                <h2 className="text-white font-bold text-lg tracking-tight">Desk.ai</h2>
+                <p className="text-blue-100 text-xs font-medium">Owner Dashboard</p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-white/80 hover:text-white transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-white transition-colors"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
         </div>
         
         {/* Navigation */}
-        <nav className="px-4 py-6 space-y-2">
+        <nav className="px-3 py-6 space-y-1.5">
           {navigation.map((item) => (
             <Link
               key={item.name}
               href={item.href}
               onClick={onClose}
-              className={`group relative flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all ${
+              className={`group relative flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
                 isActive(item.href)
-                  ? 'bg-slate-800 text-white'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  ? 'bg-gradient-to-r from-blue-600/20 to-purple-600/20 text-white shadow-lg shadow-blue-500/10'
+                  : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
               }`}
             >
               {isActive(item.href) && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-blue-500 rounded-r-full" />
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-10 bg-gradient-to-b from-blue-500 to-purple-500 rounded-r-full shadow-lg shadow-blue-500/50" />
               )}
-              <span className={`mr-3 ${isActive(item.href) ? 'text-blue-400' : 'text-slate-400 group-hover:text-blue-400'} transition-colors`}>
+              <span className={`mr-3 ${isActive(item.href) ? 'text-blue-400' : 'text-slate-500 group-hover:text-blue-400'} transition-colors duration-200`}>
                 {item.icon}
               </span>
               {item.name}

@@ -155,10 +155,12 @@ export default function Settings() {
   
   return (
     <Layout>
-      {/* Gradient Header */}
-      <div className="bg-gradient-to-r from-blue-50 via-white to-blue-50 -m-8 p-8 mb-8 border-b border-slate-200">
+      {/* Enhanced Gradient Header */}
+      <div className="bg-gradient-to-br from-blue-50/80 via-indigo-50/40 to-transparent -m-8 p-8 mb-8">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Settings</h1>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent mb-2">
+            Settings
+          </h1>
           <p className="text-slate-600">Configure your business and AI preferences</p>
         </div>
       </div>
