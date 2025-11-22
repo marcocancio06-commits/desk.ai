@@ -34,6 +34,10 @@ export function useDemoChat() {
     };
     setMessages(prev => [...prev, newUserMessage]);
 
+    // Create abort controller for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
     try {
       const response = await fetch(`${BACKEND_URL}/api/message`, {
         method: 'POST',
@@ -45,8 +49,11 @@ export function useDemoChat() {
           from: customerPhone,
           channel: 'web_chat',
           message: userMessage
-        })
+        }),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error(`Server error: ${response.status}`);
@@ -64,8 +71,29 @@ export function useDemoChat() {
       setMessages(prev => [...prev, assistantMessage]);
 
     } catch (err) {
+      clearTimeout(timeoutId);
       console.error('Error sending message:', err);
-      setError(err.message || 'Failed to send message. Make sure the backend is running.');
+      
+      let errorMessage = 'Failed to send message. Make sure the backend is running.';
+      
+      if (err.name === 'AbortError') {
+        errorMessage = 'Request timed out. The AI is taking longer than usual to respond. Please try again or simplify your question.';
+      } else if (err.message.includes('fetch')) {
+        errorMessage = 'Unable to connect to the server. Please check if the backend is running on port 3001.';
+      } else {
+        errorMessage = err.message || errorMessage;
+      }
+      
+      setError(errorMessage);
+      
+      // Add error message to chat
+      const errorChatMessage = {
+        sender: 'system',
+        text: `⚠️ ${errorMessage}`,
+        timestamp: new Date().toISOString(),
+        isError: true
+      };
+      setMessages(prev => [...prev, errorChatMessage]);
     } finally {
       setIsLoading(false);
     }

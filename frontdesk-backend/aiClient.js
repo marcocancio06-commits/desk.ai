@@ -1,5 +1,8 @@
 const { getBusinessConfig } = require('./businessConfig');
 const Anthropic = require('@anthropic-ai/sdk');
+const { retryAIOperation } = require('./retryUtils');
+const logger = require('./logger');
+const alertSystem = require('./alertSystem');
 
 // ============================================================================
 // CONVERSATION STATE MACHINE
@@ -562,35 +565,41 @@ async function handleCustomerMessage({ businessId, from, channel, message, conve
   });
   
   try {
-    // ===== ATTEMPT 1: Use preferred model (usually Haiku) =====
-    console.log(`🤖 Calling ${preferredModel} (state: ${state})...`);
-    let textContent = await callAnthropicAPI({
-      apiKey,
-      model: preferredModel,
-      systemPrompt,
-      userPrompt
-    });
+    // ===== ATTEMPT 1: Use preferred model (usually Haiku) with retry =====
+    logger.info(`Calling AI (${preferredModel})`, { state, businessId });
+    
+    const textContent = await retryAIOperation(async () => {
+      return await callAnthropicAPI({
+        apiKey,
+        model: preferredModel,
+        systemPrompt,
+        userPrompt
+      });
+    }, `AI call (${preferredModel})`);
     
     // Try to parse JSON
     let parsedResponse;
     try {
       // Clean up any markdown code blocks if present
-      textContent = textContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      parsedResponse = JSON.parse(textContent);
+      const cleanedText = textContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      parsedResponse = JSON.parse(cleanedText);
     } catch (parseError) {
-      console.warn(`⚠️  ${preferredModel} returned invalid JSON. Trying Sonnet rescue...`);
+      logger.warn(`AI returned invalid JSON, trying fallback model`, { model: preferredModel });
       throw new Error('JSON parse failed');
     }
     
     // Validate the response
     const validation = validateResponse(parsedResponse, message);
     if (!validation.isValid) {
-      console.warn(`⚠️  ${preferredModel} response invalid: ${validation.issues.join(', ')}. Trying Sonnet rescue...`);
+      logger.warn(`AI response validation failed`, {
+        model: preferredModel,
+        issues: validation.issues
+      });
       throw new Error('Response validation failed');
     }
     
     // Success! Return the response
-    console.log(`✅ ${preferredModel} succeeded`);
+    logger.info(`AI call succeeded`, { model: preferredModel });
     return parsedResponse;
     
   } catch (firstAttemptError) {
@@ -598,37 +607,59 @@ async function handleCustomerMessage({ businessId, from, channel, message, conve
     // Only retry with Sonnet if we're not already using it
     if (preferredModel !== fallbackModel) {
       try {
-        console.log(`🔄 Retrying with ${fallbackModel} (rescue mode)...`);
+        logger.info(`Retrying with fallback AI model`, { fallbackModel });
         
-        let textContent = await callAnthropicAPI({
-          apiKey,
-          model: fallbackModel,
-          systemPrompt,
-          userPrompt
-        });
+        const textContent = await retryAIOperation(async () => {
+          return await callAnthropicAPI({
+            apiKey,
+            model: fallbackModel,
+            systemPrompt,
+            userPrompt
+          });
+        }, `AI call (${fallbackModel} rescue)`);
         
         // Parse and validate
-        textContent = textContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        const parsedResponse = JSON.parse(textContent);
+        const cleanedText = textContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        const parsedResponse = JSON.parse(cleanedText);
         
         const validation = validateResponse(parsedResponse, message);
         if (!validation.isValid) {
           throw new Error(`Sonnet validation failed: ${validation.issues.join(', ')}`);
         }
         
-        console.log(`✅ ${fallbackModel} rescue succeeded`);
+        logger.info(`AI fallback model succeeded`, { fallbackModel });
         return parsedResponse;
         
       } catch (secondAttemptError) {
-        console.error(`❌ Both models failed. Using fallback.`);
-        console.error('Sonnet error:', secondAttemptError.message);
+        logger.error(`Both AI models failed`, {
+          preferredModel,
+          fallbackModel,
+          error: secondAttemptError.message
+        });
+        
+        // Send critical alert
+        await alertSystem.alertAIFailure(
+          `handleCustomerMessage (businessId: ${businessId})`,
+          secondAttemptError,
+          6 // 3 retries per model
+        );
       }
     } else {
-      console.error(`❌ ${preferredModel} failed and no rescue available.`);
-      console.error('Error:', firstAttemptError.message);
+      logger.error(`AI model failed with no fallback available`, {
+        model: preferredModel,
+        error: firstAttemptError.message
+      });
+      
+      // Send critical alert
+      await alertSystem.alertAIFailure(
+        `handleCustomerMessage (businessId: ${businessId})`,
+        firstAttemptError,
+        3
+      );
     }
     
     // ===== FINAL FALLBACK: Use simple extraction =====
+    logger.warn(`Using fallback response for message`);
     return getFallbackResponse(message);
   }
 }

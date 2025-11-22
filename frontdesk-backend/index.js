@@ -18,12 +18,36 @@ const {
   requireBusiness,
   getUserBusinesses 
 } = require('./authHelper');
+const logger = require('./logger');
+const alertSystem = require('./alertSystem');
+const smsQueue = require('./smsQueue');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
+
+// ============================================================================
+// LOGGING MIDDLEWARE
+// ============================================================================
+app.use((req, res, next) => {
+  const start = Date.now();
+  
+  // Log after response
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    logger.info(`${req.method} ${req.path}`, {
+      method: req.method,
+      path: req.path,
+      status: res.statusCode,
+      duration: `${duration}ms`,
+      ip: req.ip
+    });
+  });
+  
+  next();
+});
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -1176,6 +1200,85 @@ function startAutoSync() {
   console.log('✅ Auto-sync enabled (every 5 minutes)');
 }
 
+// ============================================================================
+// ADMIN API - System monitoring and logs
+// ============================================================================
+
+// GET /api/admin/logs - Get recent system logs
+app.get('/api/admin/logs', requireAuth, async (req, res) => {
+  try {
+    const { lines = 100, errorOnly = 'false' } = req.query;
+    const logs = logger.getRecentLogs(parseInt(lines), errorOnly === 'true');
+    
+    res.json({
+      ok: true,
+      logs,
+      count: logs.length,
+      errorOnly: errorOnly === 'true'
+    });
+  } catch (error) {
+    logger.error('Failed to fetch logs', { error: error.message });
+    res.status(500).json({
+      ok: false,
+      error: 'Failed to fetch logs'
+    });
+  }
+});
+
+// GET /api/admin/sms-queue - Get SMS queue status
+app.get('/api/admin/sms-queue', requireAuth, async (req, res) => {
+  try {
+    const status = smsQueue.getStatus();
+    res.json({
+      ok: true,
+      ...status
+    });
+  } catch (error) {
+    logger.error('Failed to fetch SMS queue status', { error: error.message });
+    res.status(500).json({
+      ok: false,
+      error: 'Failed to fetch queue status'
+    });
+  }
+});
+
+// ============================================================================
+// GLOBAL ERROR HANDLER - Must be after all routes
+// ============================================================================
+
+app.use((err, req, res, next) => {
+  const statusCode = err.statusCode || 500;
+  
+  logger.error('Unhandled error', {
+    error: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+    statusCode
+  });
+  
+  // Alert on critical server errors
+  if (statusCode >= 500) {
+    alertSystem.alertResourceIssue('Server Error', {
+      error: err.message,
+      path: req.path,
+      method: req.method,
+      stack: err.stack
+    });
+  }
+  
+  res.status(statusCode).json({
+    ok: false,
+    error: process.env.NODE_ENV === 'production' 
+      ? 'Internal server error' 
+      : err.message
+  });
+});
+
+// ============================================================================
+// START SERVER
+// ============================================================================
+
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📊 Database: ${supabase ? '✅ Connected' : '⚠️  Not configured (set SUPABASE_URL and SUPABASE_ANON_KEY)'}`);
@@ -1208,6 +1311,14 @@ app.listen(PORT, () => {
 
   // Check Auth configuration
   console.log(`🔐 Supabase Auth: ${supabase ? '✅ Configured' : '⚠️  Not configured'}`);
+  
+  // Log reliability systems status
+  logger.info('🛡️  Reliability systems initialized', {
+    logging: '✅ Enabled',
+    retryLogic: '✅ Enabled',
+    alerts: process.env.ALERT_EMAIL_USER ? '✅ Configured' : '⚠️  Not configured',
+    smsQueue: '✅ Active'
+  });
   
   // Start auto-sync if OAuth is configured
   startAutoSync();

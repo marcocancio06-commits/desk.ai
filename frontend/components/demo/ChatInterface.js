@@ -45,17 +45,24 @@ export default function ChatInterface({
         )}
         
         {messages.map((msg, idx) => (
-          <div key={idx} className={`flex ${msg.sender === 'customer' ? 'justify-end' : 'justify-start'}`}>
+          <div key={idx} className={`flex ${
+            msg.sender === 'customer' ? 'justify-end' : 
+            msg.sender === 'system' ? 'justify-center' : 'justify-start'
+          }`}>
             <div className={`max-w-xs lg:max-w-md px-5 py-3 rounded-2xl shadow-sm ${
               msg.sender === 'customer' 
                 ? 'bg-blue-600 text-white rounded-br-none' 
+                : msg.sender === 'system'
+                ? 'bg-yellow-50 text-yellow-800 border border-yellow-200 rounded-lg'
                 : 'bg-white text-gray-900 border border-gray-200 rounded-bl-none'
             }`}>
-              <div className={`text-xs font-semibold mb-1 ${
-                msg.sender === 'customer' ? 'text-blue-100' : 'text-gray-500'
-              }`}>
-                {msg.sender === 'customer' ? 'You' : 'Desk.ai'}
-              </div>
+              {msg.sender !== 'system' && (
+                <div className={`text-xs font-semibold mb-1 ${
+                  msg.sender === 'customer' ? 'text-blue-100' : 'text-gray-500'
+                }`}>
+                  {msg.sender === 'customer' ? 'You' : 'Desk.ai'}
+                </div>
+              )}
               <div className="whitespace-pre-wrap leading-relaxed">{msg.text}</div>
             </div>
           </div>
