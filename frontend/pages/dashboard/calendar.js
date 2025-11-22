@@ -68,6 +68,24 @@ function AppointmentModal({ appointment, onClose, onSave, onDelete }) {
           </button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Conflict Warning Banner */}
+          {appointment.has_conflict && (
+            <div className="bg-yellow-50 border-2 border-yellow-400 rounded-xl p-4">
+              <div className="flex items-start">
+                <svg className="w-6 h-6 text-yellow-600 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <div className="flex-1">
+                  <h3 className="font-bold text-yellow-900 mb-1">⚠️ Scheduling Conflict Detected</h3>
+                  <p className="text-sm text-yellow-800">
+                    This appointment overlaps with events in your Google Calendar. 
+                    Check your calendar to resolve the conflict.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">Issue Summary</label>
             <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
@@ -224,12 +242,13 @@ export default function CalendarPage() {
         const issueSummary = apt.issue_summary || apt.leads?.issue_summary || 'Appointment';
         const zipCode = apt.zip_code || apt.leads?.zip_code;
         const urgency = apt.urgency || apt.leads?.urgency || 'normal';
+        const hasConflict = apt.has_conflict || false;
         return {
           id: apt.id,
           title: issueSummary,
           start,
           end,
-          resource: { ...apt, customer_phone: customerPhone, issue_summary: issueSummary, zip_code: zipCode, urgency },
+          resource: { ...apt, customer_phone: customerPhone, issue_summary: issueSummary, zip_code: zipCode, urgency, has_conflict: hasConflict },
         };
       });
   }, [appointments]);
@@ -307,6 +326,7 @@ export default function CalendarPage() {
     const apt = event.resource;
     let backgroundColor = '#10b981';
     let borderColor = '#059669';
+    
     if (apt.urgency === 'emergency') {
       backgroundColor = '#ef4444';
       borderColor = '#dc2626';
@@ -314,21 +334,31 @@ export default function CalendarPage() {
       backgroundColor = '#f97316';
       borderColor = '#ea580c';
     }
+    
     if (apt.status === 'completed' || apt.status === 'cancelled') {
       backgroundColor = '#94a3b8';
       borderColor = '#64748b';
     }
+    
+    // Add conflict styling - yellow warning border
+    if (apt.has_conflict) {
+      borderColor = '#eab308';
+      borderWidth = '3px';
+      borderStyle = 'dashed';
+    }
+    
     return {
       style: {
         backgroundColor,
         borderColor,
-        borderWidth: '2px',
-        borderStyle: 'solid',
+        borderWidth: apt.has_conflict ? '3px' : '2px',
+        borderStyle: apt.has_conflict ? 'dashed' : 'solid',
         borderRadius: '6px',
         color: 'white',
         fontWeight: '600',
         fontSize: '14px',
         padding: '4px 8px',
+        position: 'relative',
       },
     };
   };
@@ -389,6 +419,10 @@ export default function CalendarPage() {
           <div className="flex items-center">
             <div className="w-4 h-4 bg-green-500 rounded mr-2"></div>
             <span className="text-slate-700 font-medium">Normal</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-4 h-4 bg-blue-500 border-2 border-dashed border-yellow-500 rounded mr-2"></div>
+            <span className="text-slate-700 font-medium">⚠️ Has Conflict</span>
           </div>
         </div>
       </div>

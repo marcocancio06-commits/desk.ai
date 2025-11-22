@@ -592,6 +592,352 @@ async function addLeadNote(leadId, note, createdBy = 'user') {
 }
 
 // ============================================================================
+// GOOGLE CALENDAR OAUTH
+// ============================================================================
+
+async function saveGoogleCalendarTokens(tokenData) {
+  if (!supabase) {
+    throw new Error('Supabase client not initialized');
+  }
+
+  const { data, error } = await supabase
+    .from('google_calendar_tokens')
+    .upsert({
+      business_id: tokenData.businessId,
+      access_token: tokenData.accessToken,
+      refresh_token: tokenData.refreshToken,
+      token_type: tokenData.tokenType,
+      expiry_date: tokenData.expiryDate,
+      scope: tokenData.scope,
+      calendar_id: tokenData.calendarId || 'primary',
+      connected_email: tokenData.connectedEmail,
+      is_active: true
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+async function getGoogleCalendarTokens(businessId) {
+  if (!supabase) {
+    throw new Error('Supabase client not initialized');
+  }
+
+  const { data, error } = await supabase
+    .from('google_calendar_tokens')
+    .select('*')
+    .eq('business_id', businessId)
+    .eq('is_active', true)
+    .single();
+
+  if (error && error.code !== 'PGRST116') {
+    throw error;
+  }
+
+  if (!data) return null;
+
+  return {
+    businessId: data.business_id,
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token,
+    tokenType: data.token_type,
+    expiryDate: data.expiry_date,
+    scope: data.scope,
+    calendarId: data.calendar_id,
+    connectedEmail: data.connected_email,
+    isActive: data.is_active,
+    createdAt: data.created_at
+  };
+}
+
+async function updateGoogleCalendarTokens(businessId, updates) {
+  if (!supabase) {
+    throw new Error('Supabase client not initialized');
+  }
+
+  const updateData = {};
+  if (updates.accessToken) updateData.access_token = updates.accessToken;
+  if (updates.expiryDate) updateData.expiry_date = updates.expiryDate;
+
+  const { data, error } = await supabase
+    .from('google_calendar_tokens')
+    .update(updateData)
+    .eq('business_id', businessId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+async function deactivateGoogleCalendarTokens(businessId) {
+  if (!supabase) {
+    throw new Error('Supabase client not initialized');
+  }
+
+  const { data, error } = await supabase
+    .from('google_calendar_tokens')
+    .update({ is_active: false })
+    .eq('business_id', businessId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+// ============================================================================
+// GOOGLE CALENDAR EVENT MAPPING
+// ============================================================================
+
+async function createGoogleCalendarEventMapping(mapping) {
+  if (!supabase) {
+    throw new Error('Supabase client not initialized');
+  }
+
+  const { data, error } = await supabase
+    .from('google_calendar_events')
+    .insert({
+      appointment_id: mapping.appointmentId,
+      business_id: mapping.businessId,
+      google_event_id: mapping.googleEventId,
+      calendar_id: mapping.calendarId,
+      sync_status: mapping.syncStatus || 'synced'
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+async function updateGoogleCalendarEventMapping(appointmentId, updates) {
+  if (!supabase) {
+    throw new Error('Supabase client not initialized');
+  }
+
+  const updateData = {};
+  if (updates.syncStatus) updateData.sync_status = updates.syncStatus;
+  if (updates.syncError) updateData.sync_error = updates.syncError;
+  updateData.last_synced_at = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from('google_calendar_events')
+    .update(updateData)
+    .eq('appointment_id', appointmentId)
+    .select()
+    .single();
+
+  if (error && error.code !== 'PGRST116') {
+    throw error;
+  }
+
+  return data;
+}
+
+async function getGoogleCalendarEventMapping(appointmentId) {
+  if (!supabase) {
+    throw new Error('Supabase client not initialized');
+  }
+
+  const { data, error } = await supabase
+    .from('google_calendar_events')
+    .select('*')
+    .eq('appointment_id', appointmentId)
+    .single();
+
+  if (error && error.code !== 'PGRST116') {
+    throw error;
+  }
+
+  return data;
+}
+
+// ============================================================================
+// GOOGLE CALENDAR CONFLICTS
+// ============================================================================
+
+async function createGoogleCalendarConflict(conflict) {
+  if (!supabase) {
+    throw new Error('Supabase client not initialized');
+  }
+
+  const { data, error } = await supabase
+    .from('google_calendar_conflicts')
+    .insert({
+      appointment_id: conflict.appointmentId,
+      business_id: conflict.businessId,
+      conflict_type: conflict.conflictType,
+      google_event_id: conflict.googleEventId,
+      google_event_summary: conflict.googleEventSummary,
+      google_event_start: conflict.googleEventStart,
+      google_event_end: conflict.googleEventEnd,
+      conflict_severity: conflict.conflictSeverity || 'warning',
+      is_resolved: false
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+async function getAppointmentConflicts(appointmentId) {
+  if (!supabase) {
+    throw new Error('Supabase client not initialized');
+  }
+
+  const { data, error } = await supabase
+    .from('google_calendar_conflicts')
+    .select('*')
+    .eq('appointment_id', appointmentId)
+    .eq('is_resolved', false)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+async function resolveConflict(conflictId, resolvedBy = 'user') {
+  if (!supabase) {
+    throw new Error('Supabase client not initialized');
+  }
+
+  const { data, error } = await supabase
+    .from('google_calendar_conflicts')
+    .update({
+      is_resolved: true,
+      resolved_at: new Date().toISOString(),
+      resolved_by: resolvedBy
+    })
+    .eq('id', conflictId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+// ============================================================================
+// GOOGLE CALENDAR SYNC
+// ============================================================================
+
+async function logGoogleCalendarSync(logData) {
+  if (!supabase) {
+    throw new Error('Supabase client not initialized');
+  }
+
+  const { data, error } = await supabase
+    .from('google_calendar_sync_log')
+    .insert({
+      business_id: logData.businessId,
+      sync_type: logData.syncType,
+      sync_direction: logData.syncDirection,
+      events_pushed: logData.eventsPushed || 0,
+      events_pulled: logData.eventsPulled || 0,
+      conflicts_detected: logData.conflictsDetected || 0,
+      errors_count: logData.errorsCount || 0,
+      sync_status: logData.syncStatus,
+      error_message: logData.errorMessage,
+      duration_ms: logData.durationMs
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+async function getAppointmentsNeedingSync(businessId) {
+  if (!supabase) {
+    throw new Error('Supabase client not initialized');
+  }
+
+  // Get appointments that have been updated but not synced
+  const { data, error } = await supabase
+    .from('appointments')
+    .select(`
+      *,
+      leads (
+        phone,
+        issue_summary,
+        zip_code,
+        urgency,
+        internal_notes
+      )
+    `)
+    .eq('business_id', businessId)
+    .in('status', ['pending', 'confirmed'])
+    .not('scheduled_date', 'is', null)
+    .or('last_synced_at.is.null,updated_at.gt.last_synced_at')
+    .order('scheduled_date', { ascending: true });
+
+  if (error) throw error;
+
+  return (data || []).map(apt => ({
+    id: apt.id,
+    businessId: apt.business_id,
+    scheduledStart: apt.scheduled_date && apt.scheduled_time 
+      ? `${apt.scheduled_date}T${apt.scheduled_time}:00` 
+      : null,
+    scheduledEnd: null, // Can calculate based on duration
+    issueSummary: apt.leads?.issue_summary,
+    customerPhone: apt.leads?.phone,
+    zipCode: apt.leads?.zip_code,
+    urgency: apt.leads?.urgency,
+    internalNotes: apt.leads?.internal_notes || apt.notes,
+    status: apt.status,
+    googleEventId: apt.google_event_id
+  }));
+}
+
+async function getUpcomingAppointments(businessId) {
+  if (!supabase) {
+    throw new Error('Supabase client not initialized');
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+
+  const { data, error } = await supabase
+    .from('appointments')
+    .select(`
+      *,
+      leads (
+        phone,
+        issue_summary,
+        zip_code,
+        urgency,
+        internal_notes
+      )
+    `)
+    .eq('business_id', businessId)
+    .in('status', ['pending', 'confirmed'])
+    .gte('scheduled_date', today)
+    .order('scheduled_date', { ascending: true });
+
+  if (error) throw error;
+
+  return (data || []).map(apt => ({
+    id: apt.id,
+    businessId: apt.business_id,
+    scheduledStart: apt.scheduled_date && apt.scheduled_time 
+      ? `${apt.scheduled_date}T${apt.scheduled_time}:00` 
+      : null,
+    scheduledEnd: null,
+    issueSummary: apt.leads?.issue_summary,
+    customerPhone: apt.leads?.phone,
+    zipCode: apt.leads?.zip_code,
+    urgency: apt.leads?.urgency,
+    internalNotes: apt.leads?.internal_notes || apt.notes,
+    status: apt.status,
+    googleEventId: apt.google_event_id,
+    hasConflict: apt.has_conflict
+  }));
+}
+
+// ============================================================================
 // EXPORTS
 // ============================================================================
 
@@ -631,5 +977,26 @@ module.exports = {
 
   // Lead Tags
   addLeadTag,
-  removeLeadTag
+  removeLeadTag,
+
+  // Google Calendar OAuth
+  saveGoogleCalendarTokens,
+  getGoogleCalendarTokens,
+  updateGoogleCalendarTokens,
+  deactivateGoogleCalendarTokens,
+  
+  // Google Calendar Event Mapping
+  createGoogleCalendarEventMapping,
+  updateGoogleCalendarEventMapping,
+  getGoogleCalendarEventMapping,
+  
+  // Google Calendar Conflicts
+  createGoogleCalendarConflict,
+  getAppointmentConflicts,
+  resolveConflict,
+  
+  // Google Calendar Sync
+  logGoogleCalendarSync,
+  getAppointmentsNeedingSync,
+  getUpcomingAppointments
 };

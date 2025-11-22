@@ -10,6 +10,7 @@ const {
   updateAppointmentEvent,
   isEnabled: isCalendarEnabled 
 } = require('./calendarClient');
+const googleCalendarOAuth = require('./googleCalendarOAuth');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -712,8 +713,230 @@ app.patch('/api/appointments/:id', async (req, res) => {
   }
 });
 
+// ============================================================================
+// GOOGLE CALENDAR OAUTH ROUTES
+// ============================================================================
+
+// Get connection status
+app.get('/api/google/status', async (req, res) => {
+  const businessId = req.query.businessId || 'demo-business-001';
+  
+  try {
+    const status = await googleCalendarOAuth.getConnectionStatus(businessId);
+    res.status(200).json({ ok: true, data: status });
+  } catch (error) {
+    console.error('Error getting calendar status:', error);
+    res.status(500).json({ 
+      ok: false,
+      error: error.message 
+    });
+  }
+});
+
+// Initiate OAuth flow
+app.get('/api/google/connect', (req, res) => {
+  const businessId = req.query.businessId || 'demo-business-001';
+  
+  try {
+    const authUrl = googleCalendarOAuth.getAuthUrl(businessId);
+    res.status(200).json({ 
+      ok: true,
+      authUrl 
+    });
+  } catch (error) {
+    console.error('Error generating auth URL:', error);
+    res.status(500).json({ 
+      ok: false,
+      error: error.message 
+    });
+  }
+});
+
+// OAuth callback - Handle the redirect from Google
+app.get('/api/google/callback', async (req, res) => {
+  const { code, state } = req.query;
+  const businessId = state || 'demo-business-001';
+  
+  if (!code) {
+    return res.status(400).send('Authorization code missing');
+  }
+  
+  try {
+    // Exchange code for tokens
+    const tokens = await googleCalendarOAuth.exchangeCodeForTokens(code);
+    
+    // Save tokens to database
+    await googleCalendarOAuth.saveTokens(businessId, tokens);
+    
+    // Redirect to frontend settings page with success
+    const redirectUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/settings?calendar=connected`;
+    res.redirect(redirectUrl);
+    
+  } catch (error) {
+    console.error('Error in OAuth callback:', error);
+    const redirectUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/settings?calendar=error`;
+    res.redirect(redirectUrl);
+  }
+});
+
+// Disconnect calendar
+app.post('/api/google/disconnect', async (req, res) => {
+  const { businessId } = req.body;
+  
+  if (!businessId) {
+    return res.status(400).json({ 
+      ok: false,
+      error: 'Business ID is required' 
+    });
+  }
+  
+  try {
+    await googleCalendarOAuth.disconnectCalendar(businessId);
+    res.status(200).json({ 
+      ok: true,
+      message: 'Calendar disconnected successfully' 
+    });
+  } catch (error) {
+    console.error('Error disconnecting calendar:', error);
+    res.status(500).json({ 
+      ok: false,
+      error: error.message 
+    });
+  }
+});
+
+// Trigger manual sync
+app.post('/api/google/sync', async (req, res) => {
+  const { businessId } = req.body;
+  
+  if (!businessId) {
+    return res.status(400).json({ 
+      ok: false,
+      error: 'Business ID is required' 
+    });
+  }
+  
+  try {
+    const result = await googleCalendarOAuth.syncCalendar(businessId);
+    res.status(200).json({ 
+      ok: true,
+      data: result 
+    });
+  } catch (error) {
+    console.error('Error syncing calendar:', error);
+    res.status(500).json({ 
+      ok: false,
+      error: error.message 
+    });
+  }
+});
+
+// Get conflicts for an appointment
+app.get('/api/appointments/:id/conflicts', async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const conflicts = await db.getAppointmentConflicts(id);
+    res.status(200).json({ 
+      ok: true,
+      data: conflicts 
+    });
+  } catch (error) {
+    console.error('Error getting conflicts:', error);
+    res.status(500).json({ 
+      ok: false,
+      error: error.message 
+    });
+  }
+});
+
+// Resolve a conflict
+app.post('/api/conflicts/:id/resolve', async (req, res) => {
+  const { id } = req.params;
+  const { resolvedBy } = req.body;
+  
+  try {
+    const conflict = await db.resolveConflict(id, resolvedBy || 'user');
+    
+    // Update appointment to remove conflict flag if no more conflicts
+    if (conflict && conflict.appointment_id) {
+      const remainingConflicts = await db.getAppointmentConflicts(conflict.appointment_id);
+      if (remainingConflicts.length === 0) {
+        await db.updateAppointment(conflict.appointment_id, { hasConflict: false });
+      }
+    }
+    
+    res.status(200).json({ 
+      ok: true,
+      data: conflict 
+    });
+  } catch (error) {
+    console.error('Error resolving conflict:', error);
+    res.status(500).json({ 
+      ok: false,
+      error: error.message 
+    });
+  }
+});
+
+// ============================================================================
+// CRON JOB - Auto-sync every 5 minutes
+// ============================================================================
+
+let syncInterval = null;
+
+function startAutoSync() {
+  // Check if OAuth is configured
+  if (!process.env.GOOGLE_OAUTH_CLIENT_ID) {
+    console.log('📅 Google Calendar OAuth not configured, skipping auto-sync');
+    return;
+  }
+  
+  // Clear existing interval if any
+  if (syncInterval) {
+    clearInterval(syncInterval);
+  }
+  
+  // Run sync every 5 minutes
+  syncInterval = setInterval(async () => {
+    try {
+      console.log('🔄 Running scheduled calendar sync...');
+      
+      // Get all businesses with active Google Calendar connections
+      const { data: activeConnections } = await supabase
+        .from('google_calendar_tokens')
+        .select('business_id')
+        .eq('is_active', true);
+      
+      if (!activeConnections || activeConnections.length === 0) {
+        console.log('📅 No active calendar connections found');
+        return;
+      }
+      
+      // Sync each connected business
+      for (const conn of activeConnections) {
+        try {
+          await googleCalendarOAuth.syncCalendar(conn.business_id);
+        } catch (error) {
+          console.error(`Error syncing ${conn.business_id}:`, error.message);
+        }
+      }
+      
+      console.log('✅ Scheduled sync complete');
+      
+    } catch (error) {
+      console.error('Error in scheduled sync:', error);
+    }
+  }, 5 * 60 * 1000); // 5 minutes
+  
+  console.log('✅ Auto-sync enabled (every 5 minutes)');
+}
+
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📊 Database: ${supabase ? '✅ Connected' : '⚠️  Not configured (set SUPABASE_URL and SUPABASE_ANON_KEY)'}`);
   console.log(`📅 Google Calendar: ${isCalendarEnabled() ? '✅ Enabled' : '⚠️  Not configured'}`);
+  
+  // Start auto-sync if OAuth is configured
+  startAutoSync();
 });
