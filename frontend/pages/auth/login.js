@@ -1,19 +1,31 @@
 // Owner Login Page - /auth/login
 // Secure login for existing business owners
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Logo from '../../components/Logo';
-import { signIn } from '../../lib/supabase';
+import { signIn, getUserProfile } from '../../lib/supabase';
 
 export default function Login() {
   const router = useRouter();
+  const { role: roleParam } = router.query;
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [expectedRole, setExpectedRole] = useState(null);
+
+  // Set expected role from query params
+  useEffect(() => {
+    if (roleParam) {
+      const normalizedRole = roleParam.toLowerCase();
+      if (normalizedRole === 'owner' || normalizedRole === 'client') {
+        setExpectedRole(normalizedRole);
+      }
+    }
+  }, [roleParam]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -28,15 +40,35 @@ export default function Login() {
       
       // Sign in with Supabase
       console.log('Signing in...', email);
-      const { data, error: signInError } = await signIn(email, password);
+      const { user } = await signIn(email, password);
       
-      if (signInError) throw signInError;
-      if (!data.user) throw new Error('Invalid login response');
+      if (!user) throw new Error('Invalid login response');
       
       console.log('✅ Login successful');
       
-      // Redirect to dashboard
-      router.push('/dashboard');
+      // Fetch user profile to get role
+      const profile = await getUserProfile(user.id);
+      
+      if (!profile) {
+        console.warn('No profile found for user, defaulting to client role');
+        router.push('/client');
+        return;
+      }
+      
+      console.log('User role:', profile.role);
+      
+      // Redirect based on role
+      if (profile.role === 'owner') {
+        console.log('Redirecting owner to dashboard...');
+        router.push('/dashboard');
+      } else if (profile.role === 'client') {
+        console.log('Redirecting client to client home...');
+        router.push('/client');
+      } else {
+        // Unknown role, default to client
+        console.warn('Unknown role, defaulting to client');
+        router.push('/client');
+      }
       
     } catch (err) {
       console.error('Login error:', err);
@@ -66,8 +98,8 @@ export default function Login() {
           Sign in to Desk.ai
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Demo authentication • Don't have an account?{' '}
-          <Link href="/auth/signup" className="font-medium text-blue-600 hover:text-blue-500">
+          {expectedRole === 'owner' ? 'Business Owner Login' : expectedRole === 'client' ? 'Customer Login' : 'Sign in to your account'} • Don't have an account?{' '}
+          <Link href={`/auth/signup${roleParam ? `?role=${roleParam}` : ''}`} className="font-medium text-blue-600 hover:text-blue-500">
             Sign up
           </Link>
         </p>

@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
+import { withOwnerAuth } from '../lib/withOwnerAuth';
 import Logo from '../components/Logo';
 import Step1BusinessDetails from '../components/onboarding/Step1BusinessDetails';
 import Step2ServiceArea from '../components/onboarding/Step2ServiceArea';
@@ -11,7 +12,7 @@ import Step4Confirm from '../components/onboarding/Step4Confirm';
 const TOTAL_STEPS = 4;
 const STORAGE_KEY = 'desk_ai_onboarding_data';
 
-export default function OnboardingWizard() {
+function OnboardingWizard() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   
@@ -286,3 +287,6 @@ export default function OnboardingWizard() {
     </div>
   );
 }
+
+// Only business owners can access onboarding
+export default withOwnerAuth(OnboardingWizard);

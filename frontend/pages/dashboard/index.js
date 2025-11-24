@@ -6,6 +6,7 @@ import QuickActionCard from '../../components/ui/QuickActionCard';
 import RecentActivityTimeline from '../../components/dashboard/RecentActivityTimeline';
 import { BACKEND_URL } from '../../lib/config';
 import { withAuth, useAuth } from '../../contexts/AuthContext';
+import { withOwnerAuth } from '../../lib/withOwnerAuth';
 import { getAuthHeader } from '../../lib/supabase';
 
 function Dashboard() {
@@ -350,4 +351,5 @@ function Dashboard() {
   );
 }
 
-export default withAuth(Dashboard);
+// Protect with both auth and owner role check
+export default withAuth(withOwnerAuth(Dashboard));

@@ -2,24 +2,39 @@
 // Simplified flow: Create account → Redirect to onboarding wizard
 // Handles email confirmation when enabled in Supabase
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Logo from '../../components/Logo';
-import { supabase, signUp } from '../../lib/supabase';
+import { supabase, signUp, upsertProfile } from '../../lib/supabase';
 
 export default function Signup() {
   const router = useRouter();
+  const { role: roleParam } = router.query;
   
   // Form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [userRole, setUserRole] = useState('client'); // Default to client
   
   // UI state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [emailConfirmationRequired, setEmailConfirmationRequired] = useState(false);
+
+  // Set role from query params
+  useEffect(() => {
+    if (roleParam) {
+      const normalizedRole = roleParam.toLowerCase();
+      if (normalizedRole === 'owner' || normalizedRole === 'client') {
+        setUserRole(normalizedRole);
+      } else {
+        console.warn('Invalid role parameter, defaulting to client');
+        setUserRole('client');
+      }
+    }
+  }, [roleParam]);
 
   const handleAccountSubmit = async (e) => {
     e.preventDefault();
@@ -63,22 +78,23 @@ export default function Signup() {
       const userId = authData.user.id;
       console.log('Auth user created:', userId);
       
-      // Create profile (only if user exists)
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: userId,
-          full_name: email.split('@')[0], // Default name from email
-        });
+      // Create profile with role
+      console.log('Creating profile with role:', userRole);
+      await upsertProfile(userId, {
+        full_name: email.split('@')[0], // Default name from email
+        role: userRole
+      });
       
-      if (profileError) {
-        console.warn('Profile creation warning:', profileError);
-        // Non-fatal, continue
+      console.log('✅ Profile created with role:', userRole);
+      
+      // Success! Redirect based on role
+      if (userRole === 'owner') {
+        console.log('Redirecting owner to onboarding...');
+        router.push('/onboarding');
+      } else {
+        console.log('Redirecting client to client home...');
+        router.push('/client');
       }
-      
-      // Success! Redirect to onboarding wizard
-      console.log('✅ Signup complete, redirecting to onboarding...');
-      router.push('/onboarding');
       
     } catch (err) {
       console.error('Signup error:', err);
@@ -167,11 +183,11 @@ export default function Signup() {
           <Logo variant="large" showText={true} />
         </div>
         <h2 className="text-center text-3xl font-bold text-gray-900">
-          Create Your Desk.ai Account
+          Create Your {userRole === 'owner' ? 'Business Owner' : 'Customer'} Account
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Start your free trial • Already have an account?{' '}
-          <Link href="/auth/login" className="font-medium text-blue-600 hover:text-blue-500">
+          {userRole === 'owner' ? 'Set up your AI front desk' : 'Access chat and marketplace'} • Already have an account?{' '}
+          <Link href={`/auth/login${roleParam ? `?role=${roleParam}` : ''}`} className="font-medium text-blue-600 hover:text-blue-500">
             Sign in
           </Link>
         </p>
@@ -272,9 +288,31 @@ export default function Signup() {
 
           {/* Info notice */}
           <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-xs text-gray-500 text-center">
-              After creating your account, you'll complete a quick setup wizard to configure your business.
-            </p>
+            {userRole === 'owner' ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-center text-sm text-gray-600">
+                  <svg className="w-4 h-4 text-blue-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span>Business Owner Account</span>
+                </div>
+                <p className="text-xs text-gray-500 text-center">
+                  After creating your account, you'll complete a quick setup wizard to configure your business.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center justify-center text-sm text-gray-600">
+                  <svg className="w-4 h-4 text-purple-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
+                  </svg>
+                  <span>Customer Account</span>
+                </div>
+                <p className="text-xs text-gray-500 text-center">
+                  Access business chat and marketplace features.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

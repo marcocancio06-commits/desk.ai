@@ -173,3 +173,89 @@ export function onAuthStateChange(callback) {
   
   return () => subscription.unsubscribe();
 }
+
+/**
+ * Get user profile from database
+ * Returns the profile record including role
+ */
+export async function getUserProfile(userId) {
+  if (!supabase || !userId) return null;
+  
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .single();
+  
+  if (error) {
+    console.error('Error getting user profile:', error);
+    return null;
+  }
+  
+  return data;
+}
+
+/**
+ * Get current user with their profile (including role)
+ * Returns { user, profile } or { user: null, profile: null }
+ */
+export async function getUserWithProfile() {
+  if (!supabase) {
+    return { user: null, profile: null };
+  }
+  
+  try {
+    // Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    if (userError || !user) {
+      return { user: null, profile: null };
+    }
+    
+    // Get user profile
+    const profile = await getUserProfile(user.id);
+    
+    return { user, profile };
+  } catch (error) {
+    console.error('Error in getUserWithProfile:', error);
+    return { user: null, profile: null };
+  }
+}
+
+/**
+ * Create or update user profile with role
+ */
+export async function upsertProfile(userId, profileData) {
+  if (!supabase || !userId) {
+    throw new Error('Invalid parameters for upsertProfile');
+  }
+  
+  const { data, error } = await supabase
+    .from('profiles')
+    .upsert({
+      id: userId,
+      ...profileData,
+      updated_at: new Date().toISOString()
+    })
+    .select()
+    .single();
+  
+  if (error) {
+    throw error;
+  }
+  
+  return data;
+}
+
+/**
+ * Check if user has a specific role
+ */
+export async function checkUserRole(requiredRole) {
+  const { profile } = await getUserWithProfile();
+  
+  if (!profile) {
+    return false;
+  }
+  
+  return profile.role === requiredRole;
+}
