@@ -4,8 +4,8 @@ import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import { format, parse, startOfWeek, getDay, addHours, setHours, setMinutes } from 'date-fns';
 import { enUS } from 'date-fns/locale';
 import Layout from './components/Layout';
-import { BACKEND_URL, DEFAULT_BUSINESS_ID } from '../../lib/config';
-import { withAuth } from '../../contexts/AuthContext';
+import { BACKEND_URL } from '../../lib/config';
+import { withAuth, useAuth } from '../../contexts/AuthContext';
 import { getAuthHeader } from '../../lib/supabase';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
@@ -204,22 +204,31 @@ function AppointmentModal({ appointment, onClose, onSave, onDelete }) {
 }
 
 function CalendarPage() {
+  const { currentBusiness, businessLoading, getCurrentBusinessId } = useAuth();
   const [appointments, setAppointments] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Only for data fetching
   const [error, setError] = useState(null);
   const [view, setView] = useState('week');
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
-    fetchAppointments();
-  }, []);
+    if (currentBusiness && !businessLoading) {
+      fetchAppointments();
+    }
+  }, [currentBusiness, businessLoading]);
 
   const fetchAppointments = async () => {
+    const businessId = getCurrentBusinessId();
+    if (!businessId) {
+      console.warn('No business selected');
+      return;
+    }
+    
     try {
       setLoading(true);
       const authHeader = await getAuthHeader();
-      const url = BACKEND_URL + '/api/appointments';
+      const url = `${BACKEND_URL}/api/appointments?businessId=${businessId}`;
       const response = await fetch(url, {
         headers: authHeader
       });

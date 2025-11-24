@@ -517,6 +517,60 @@ async function deleteAppointment(appointmentId) {
   return true;
 }
 
+/**
+ * Get a single appointment by ID
+ * @param {string} appointmentId - Appointment ID
+ * @returns {Promise<object|null>} Appointment object or null
+ */
+async function getAppointmentById(appointmentId) {
+  if (!supabase) {
+    throw new Error('Supabase client not initialized');
+  }
+
+  const { data, error } = await supabase
+    .from('appointments')
+    .select('*')
+    .eq('id', appointmentId)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      // Not found
+      return null;
+    }
+    throw error;
+  }
+
+  return data;
+}
+
+/**
+ * Get a single conflict by ID
+ * @param {string} conflictId - Conflict ID
+ * @returns {Promise<object|null>} Conflict object or null
+ */
+async function getConflictById(conflictId) {
+  if (!supabase) {
+    throw new Error('Supabase client not initialized');
+  }
+
+  const { data, error } = await supabase
+    .from('google_calendar_conflicts')
+    .select('*')
+    .eq('id', conflictId)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      // Not found
+      return null;
+    }
+    throw error;
+  }
+
+  return data;
+}
+
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
@@ -1114,6 +1168,7 @@ module.exports = {
   // Appointments
   createAppointment,
   getAppointmentsByBusiness,
+  getAppointmentById,
   updateAppointment,
   deleteAppointment,
 
@@ -1140,6 +1195,7 @@ module.exports = {
   // Google Calendar Conflicts
   createGoogleCalendarConflict,
   getAppointmentConflicts,
+  getConflictById,
   resolveConflict,
   
   // Google Calendar Sync

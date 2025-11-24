@@ -5,13 +5,14 @@ import LeadTable from './components/LeadTable';
 import LeadDetailModal from './components/LeadDetailModal';
 import QuickActionsBar from '../../components/ui/QuickActionsBar';
 import { RefreshCw, Filter } from 'lucide-react';
-import { BACKEND_URL, DEFAULT_BUSINESS_ID } from '../../lib/config';
-import { withAuth } from '../../contexts/AuthContext';
+import { BACKEND_URL } from '../../lib/config';
+import { withAuth, useAuth } from '../../contexts/AuthContext';
 import { getAuthHeader } from '../../lib/supabase';
 
 function Leads() {
+  const { currentBusiness, businessLoading, getCurrentBusinessId } = useAuth();
   const [leads, setLeads] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Only for data fetching
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all');
@@ -20,9 +21,16 @@ function Leads() {
   const [modalOpen, setModalOpen] = useState(false);
   
   const fetchLeads = async () => {
+    const businessId = getCurrentBusinessId();
+    if (!businessId) {
+      console.warn('No business selected');
+      return;
+    }
+    
+    setLoading(true);
     try {
       const authHeader = await getAuthHeader();
-      const res = await fetch(`${BACKEND_URL}/api/leads`, {
+      const res = await fetch(`${BACKEND_URL}/api/leads?businessId=${businessId}`, {
         headers: authHeader
       });
       if (!res.ok) {
@@ -41,8 +49,10 @@ function Leads() {
   };
 
   useEffect(() => {
-    fetchLeads();
-  }, []);
+    if (currentBusiness && !businessLoading) {
+      fetchLeads();
+    }
+  }, [currentBusiness, businessLoading]);
 
   const handleRefresh = () => {
     setRefreshing(true);

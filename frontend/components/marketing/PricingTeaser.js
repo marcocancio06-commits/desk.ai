@@ -12,8 +12,8 @@ export default function PricingTeaser() {
         'Daily summaries',
         'Email support'
       ],
-      cta: 'Start free',
-      ctaLink: '/demo-chat',
+      cta: 'Get started',
+      ctaLink: '/get-started',
       popular: false
     },
     {
@@ -27,8 +27,8 @@ export default function PricingTeaser() {
         'Priority support',
         'Custom integrations'
       ],
-      cta: 'Start free',
-      ctaLink: '/demo-chat',
+      cta: 'Get started',
+      ctaLink: '/get-started',
       popular: true
     },
     {
@@ -56,7 +56,7 @@ export default function PricingTeaser() {
             Simple monthly pricing. No long-term contracts.
           </h2>
           <p className="text-xl text-gray-600">
-            Start free during beta. Cancel anytime.
+            Free during beta. Cancel anytime.
           </p>
         </div>
         

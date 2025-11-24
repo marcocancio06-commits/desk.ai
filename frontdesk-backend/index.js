@@ -16,6 +16,8 @@ const {
   getContextFromRequest, 
   requireAuth, 
   requireBusiness,
+  requireBusinessOwnership,
+  verifyBusinessAccess,
   getUserBusinesses 
 } = require('./authHelper');
 const logger = require('./logger');
@@ -62,6 +64,14 @@ app.get('/health', (req, res) => {
 app.post('/api/message', async (req, res) => {
   const { businessId, from, channel, message } = req.body;
   
+  // SECURITY: business_id is REQUIRED
+  if (!businessId) {
+    return res.status(400).json({ 
+      error: 'business_id required',
+      code: 'BUSINESS_ID_REQUIRED'
+    });
+  }
+  
   if (!message) {
     return res.status(400).json({ 
       error: 'Message is required' 
@@ -69,11 +79,42 @@ app.post('/api/message', async (req, res) => {
   }
   
   try {
-    const targetBusinessId = businessId || 'demo-business-001';
+    // Verify business exists and is active
+    if (!supabase) {
+      return res.status(500).json({ error: 'Database not configured' });
+    }
+    
+    const { data: business, error: businessError } = await supabase
+      .from('businesses')
+      .select('id, is_active')
+      .eq('id', businessId)
+      .eq('is_active', true)
+      .single();
+    
+    if (businessError || !business) {
+      return res.status(404).json({
+        error: 'Business not found or inactive',
+        code: 'BUSINESS_NOT_FOUND'
+      });
+    }
+    
     const targetFrom = from || 'unknown';
     
-    // Get or create lead
-    const lead = await db.getOrCreateLead(targetBusinessId, targetFrom, channel || 'web');
+    // Get or create lead - ALWAYS scoped to businessId
+    const lead = await db.getOrCreateLead(businessId, targetFrom, channel || 'web');
+    
+    // Verify lead belongs to correct business (double-check)
+    if (lead.business_id !== businessId) {
+      logger.error('Cross-tenant data leak prevented', {
+        expectedBusinessId: businessId,
+        actualBusinessId: lead.business_id,
+        leadId: lead.id
+      });
+      return res.status(403).json({
+        error: 'Data isolation error',
+        code: 'FORBIDDEN'
+      });
+    }
     
     // Save customer message
     await db.createMessage({
@@ -100,7 +141,7 @@ app.post('/api/message', async (req, res) => {
     
     // Call AI with conversation state
     const aiResult = await handleCustomerMessage({
-      businessId: targetBusinessId,
+      businessId: businessId,
       from: targetFrom,
       channel: channel || 'web',
       message,
@@ -243,17 +284,11 @@ app.get('/api/summary', requireBusiness, async (req, res) => {
   }
 });
 
-// Update a lead's fields - Now using database
-app.patch('/api/leads/:id', async (req, res) => {
+// Update a lead's fields - Now using database with business verification
+app.patch('/api/leads/:id', requireAuth, requireBusinessOwnership, async (req, res) => {
   const { id } = req.params;
-  const { businessId, status, urgency, scheduledTime, ownerNotes } = req.body;
-  
-  // Validate required fields
-  if (!businessId) {
-    return res.status(400).json({ 
-      error: 'businessId is required in request body' 
-    });
-  }
+  const { status, urgency, scheduledTime, ownerNotes } = req.body;
+  const { verifiedBusinessId } = req.authContext;
   
   if (!id) {
     return res.status(400).json({ 
@@ -262,6 +297,29 @@ app.patch('/api/leads/:id', async (req, res) => {
   }
   
   try {
+    // Get the lead first to verify it belongs to the business
+    const lead = await db.getLeadById(id);
+    
+    if (!lead) {
+      return res.status(404).json({
+        error: 'Lead not found'
+      });
+    }
+    
+    // SECURITY: Verify lead belongs to the authenticated user's business
+    if (lead.business_id !== verifiedBusinessId) {
+      logger.warn('Attempted cross-tenant lead access', {
+        userId: req.authContext.userId,
+        requestedLeadId: id,
+        leadBusinessId: lead.business_id,
+        userBusinessId: verifiedBusinessId
+      });
+      return res.status(403).json({
+        error: 'Access denied - lead belongs to different business',
+        code: 'FORBIDDEN'
+      });
+    }
+    
     // Build updates object
     const updates = {};
     if (status !== undefined) updates.status = status;
@@ -271,13 +329,6 @@ app.patch('/api/leads/:id', async (req, res) => {
     
     // Update the lead
     const updatedLead = await db.updateLead(id, updates);
-    
-    // Verify it belongs to the business
-    if (updatedLead.business_id !== businessId) {
-      return res.status(403).json({
-        error: 'Lead does not belong to this business'
-      });
-    }
     
     // Return the updated lead
     res.status(200).json({ 
@@ -300,11 +351,30 @@ app.patch('/api/leads/:id', async (req, res) => {
   }
 });
 
-// Get lead timeline (events + messages)
-app.get('/api/leads/:id/timeline', async (req, res) => {
+// Get lead timeline (events + messages) - Protected
+app.get('/api/leads/:id/timeline', requireAuth, async (req, res) => {
   const { id } = req.params;
+  const { userId, businessId, isDemo } = req.authContext;
   
   try {
+    // Get the lead first to verify ownership
+    const lead = await db.getLeadById(id);
+    
+    if (!lead) {
+      return res.status(404).json({ error: 'Lead not found' });
+    }
+    
+    // SECURITY: Verify user has access to this lead's business
+    if (!isDemo) {
+      const { hasAccess } = await verifyBusinessAccess(userId, lead.business_id);
+      if (!hasAccess) {
+        return res.status(403).json({
+          error: 'Access denied',
+          code: 'FORBIDDEN'
+        });
+      }
+    }
+    
     const timeline = await db.getLeadTimeline(id);
     res.status(200).json({ timeline });
   } catch (error) {
@@ -316,11 +386,30 @@ app.get('/api/leads/:id/timeline', async (req, res) => {
   }
 });
 
-// Get lead events only
-app.get('/api/leads/:id/events', async (req, res) => {
+// Get lead events only - Protected
+app.get('/api/leads/:id/events', requireAuth, async (req, res) => {
   const { id } = req.params;
+  const { userId, isDemo } = req.authContext;
   
   try {
+    // Get the lead first to verify ownership
+    const lead = await db.getLeadById(id);
+    
+    if (!lead) {
+      return res.status(404).json({ error: 'Lead not found' });
+    }
+    
+    // SECURITY: Verify user has access to this lead's business
+    if (!isDemo) {
+      const { hasAccess } = await verifyBusinessAccess(userId, lead.business_id);
+      if (!hasAccess) {
+        return res.status(403).json({
+          error: 'Access denied',
+          code: 'FORBIDDEN'
+        });
+      }
+    }
+    
     const events = await db.getLeadEvents(id);
     res.status(200).json({ events });
   } catch (error) {
@@ -332,16 +421,35 @@ app.get('/api/leads/:id/events', async (req, res) => {
   }
 });
 
-// Update lead status with event tracking
-app.post('/api/leads/:id/status', async (req, res) => {
+// Update lead status with event tracking - Protected
+app.post('/api/leads/:id/status', requireAuth, async (req, res) => {
   const { id } = req.params;
   const { status, createdBy = 'user' } = req.body;
+  const { userId, isDemo } = req.authContext;
   
   if (!status) {
     return res.status(400).json({ error: 'Status is required' });
   }
   
   try {
+    // Get the lead first to verify ownership
+    const lead = await db.getLeadById(id);
+    
+    if (!lead) {
+      return res.status(404).json({ error: 'Lead not found' });
+    }
+    
+    // SECURITY: Verify user has access to this lead's business
+    if (!isDemo) {
+      const { hasAccess } = await verifyBusinessAccess(userId, lead.business_id);
+      if (!hasAccess) {
+        return res.status(403).json({
+          error: 'Access denied',
+          code: 'FORBIDDEN'
+        });
+      }
+    }
+    
     const updatedLead = await db.updateLeadStatus(id, status, createdBy);
     res.status(200).json({ 
       lead: updatedLead,
@@ -356,16 +464,35 @@ app.post('/api/leads/:id/status', async (req, res) => {
   }
 });
 
-// Add note to lead
-app.post('/api/leads/:id/notes', async (req, res) => {
+// Add note to lead - Protected
+app.post('/api/leads/:id/notes', requireAuth, async (req, res) => {
   const { id } = req.params;
   const { note, createdBy = 'user' } = req.body;
+  const { userId, isDemo } = req.authContext;
   
   if (!note || !note.trim()) {
     return res.status(400).json({ error: 'Note is required' });
   }
   
   try {
+    // Get the lead first to verify ownership
+    const lead = await db.getLeadById(id);
+    
+    if (!lead) {
+      return res.status(404).json({ error: 'Lead not found' });
+    }
+    
+    // SECURITY: Verify user has access to this lead's business
+    if (!isDemo) {
+      const { hasAccess } = await verifyBusinessAccess(userId, lead.business_id);
+      if (!hasAccess) {
+        return res.status(403).json({
+          error: 'Access denied',
+          code: 'FORBIDDEN'
+        });
+      }
+    }
+    
     const updatedLead = await db.addLeadNote(id, note.trim(), createdBy);
     res.status(200).json({ 
       lead: updatedLead,
@@ -380,16 +507,35 @@ app.post('/api/leads/:id/notes', async (req, res) => {
   }
 });
 
-// Add tag to lead
-app.post('/api/leads/:id/tags', async (req, res) => {
+// Add tag to lead - Protected
+app.post('/api/leads/:id/tags', requireAuth, async (req, res) => {
   const { id } = req.params;
   const { tag, createdBy = 'user' } = req.body;
+  const { userId, isDemo } = req.authContext;
   
   if (!tag || !tag.trim()) {
     return res.status(400).json({ error: 'Tag is required' });
   }
   
   try {
+    // Get the lead first to verify ownership
+    const lead = await db.getLeadById(id);
+    
+    if (!lead) {
+      return res.status(404).json({ error: 'Lead not found' });
+    }
+    
+    // SECURITY: Verify user has access to this lead's business
+    if (!isDemo) {
+      const { hasAccess } = await verifyBusinessAccess(userId, lead.business_id);
+      if (!hasAccess) {
+        return res.status(403).json({
+          error: 'Access denied',
+          code: 'FORBIDDEN'
+        });
+      }
+    }
+    
     const updatedLead = await db.addLeadTag(id, tag.trim(), createdBy);
     res.status(200).json({ 
       lead: updatedLead,
@@ -404,12 +550,31 @@ app.post('/api/leads/:id/tags', async (req, res) => {
   }
 });
 
-// Remove tag from lead
-app.delete('/api/leads/:id/tags/:tag', async (req, res) => {
+// Remove tag from lead - Protected
+app.delete('/api/leads/:id/tags/:tag', requireAuth, async (req, res) => {
   const { id, tag } = req.params;
   const { createdBy = 'user' } = req.body;
+  const { userId, isDemo } = req.authContext;
   
   try {
+    // Get the lead first to verify ownership
+    const lead = await db.getLeadById(id);
+    
+    if (!lead) {
+      return res.status(404).json({ error: 'Lead not found' });
+    }
+    
+    // SECURITY: Verify user has access to this lead's business
+    if (!isDemo) {
+      const { hasAccess } = await verifyBusinessAccess(userId, lead.business_id);
+      if (!hasAccess) {
+        return res.status(403).json({
+          error: 'Access denied',
+          code: 'FORBIDDEN'
+        });
+      }
+    }
+    
     const updatedLead = await db.removeLeadTag(id, tag, createdBy);
     res.status(200).json({ 
       lead: updatedLead,
@@ -424,16 +589,35 @@ app.delete('/api/leads/:id/tags/:tag', async (req, res) => {
   }
 });
 
-// Update lead fields with event tracking
-app.put('/api/leads/:id', async (req, res) => {
+// Update lead fields with event tracking - Protected
+app.put('/api/leads/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   const { updates, createdBy = 'user' } = req.body;
+  const { userId, isDemo } = req.authContext;
   
   if (!updates || typeof updates !== 'object') {
     return res.status(400).json({ error: 'Updates object is required' });
   }
   
   try {
+    // Get the lead first to verify ownership
+    const lead = await db.getLeadById(id);
+    
+    if (!lead) {
+      return res.status(404).json({ error: 'Lead not found' });
+    }
+    
+    // SECURITY: Verify user has access to this lead's business
+    if (!isDemo) {
+      const { hasAccess } = await verifyBusinessAccess(userId, lead.business_id);
+      if (!hasAccess) {
+        return res.status(403).json({
+          error: 'Access denied',
+          code: 'FORBIDDEN'
+        });
+      }
+    }
+    
     const updatedLead = await db.updateLeadWithEvent(id, updates, createdBy);
     res.status(200).json({ 
       lead: updatedLead,
@@ -663,9 +847,10 @@ app.post('/api/appointments', requireBusiness, async (req, res) => {
 });
 
 // PATCH /api/appointments/:id - Update appointment with database + optional calendar sync
-app.patch('/api/appointments/:id', async (req, res) => {
+app.patch('/api/appointments/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   const { status, scheduledDate, scheduledTime, internalNotes, urgency } = req.body;
+  const { userId, isDemo } = req.authContext;
   
   if (!id) {
     return res.status(400).json({ 
@@ -675,6 +860,33 @@ app.patch('/api/appointments/:id', async (req, res) => {
   }
   
   try {
+    // Get appointment first to verify ownership
+    const existingAppointment = await db.getAppointmentById(id);
+    
+    if (!existingAppointment) {
+      return res.status(404).json({
+        ok: false,
+        error: 'Appointment not found'
+      });
+    }
+    
+    // SECURITY: Verify user has access to this appointment's business
+    if (!isDemo) {
+      const { hasAccess } = await verifyBusinessAccess(userId, existingAppointment.business_id);
+      if (!hasAccess) {
+        logger.warn('Attempted cross-tenant appointment access', {
+          userId,
+          appointmentId: id,
+          appointmentBusinessId: existingAppointment.business_id
+        });
+        return res.status(403).json({
+          ok: false,
+          error: 'Access denied',
+          code: 'FORBIDDEN'
+        });
+      }
+    }
+    
     // Build updates object with only provided fields
     const updates = {};
     if (status !== undefined) updates.status = status;
@@ -889,11 +1101,34 @@ app.post('/api/google/sync', async (req, res) => {
   }
 });
 
-// Get conflicts for an appointment
-app.get('/api/appointments/:id/conflicts', async (req, res) => {
+// Get conflicts for an appointment - Protected
+app.get('/api/appointments/:id/conflicts', requireAuth, async (req, res) => {
   const { id } = req.params;
+  const { userId, isDemo } = req.authContext;
   
   try {
+    // Get appointment first to verify ownership
+    const appointment = await db.getAppointmentById(id);
+    
+    if (!appointment) {
+      return res.status(404).json({
+        ok: false,
+        error: 'Appointment not found'
+      });
+    }
+    
+    // SECURITY: Verify user has access to this appointment's business
+    if (!isDemo) {
+      const { hasAccess } = await verifyBusinessAccess(userId, appointment.business_id);
+      if (!hasAccess) {
+        return res.status(403).json({
+          ok: false,
+          error: 'Access denied',
+          code: 'FORBIDDEN'
+        });
+      }
+    }
+    
     const conflicts = await db.getAppointmentConflicts(id);
     res.status(200).json({ 
       ok: true,
@@ -908,12 +1143,45 @@ app.get('/api/appointments/:id/conflicts', async (req, res) => {
   }
 });
 
-// Resolve a conflict
-app.post('/api/conflicts/:id/resolve', async (req, res) => {
+// Resolve a conflict - Protected
+app.post('/api/conflicts/:id/resolve', requireAuth, async (req, res) => {
   const { id } = req.params;
   const { resolvedBy } = req.body;
+  const { userId, isDemo } = req.authContext;
   
   try {
+    // Get conflict first
+    const conflictData = await db.getConflictById(id);
+    
+    if (!conflictData) {
+      return res.status(404).json({
+        ok: false,
+        error: 'Conflict not found'
+      });
+    }
+    
+    // Get associated appointment to verify ownership
+    const appointment = await db.getAppointmentById(conflictData.appointment_id);
+    
+    if (!appointment) {
+      return res.status(404).json({
+        ok: false,
+        error: 'Associated appointment not found'
+      });
+    }
+    
+    // SECURITY: Verify user has access to this conflict's business
+    if (!isDemo) {
+      const { hasAccess } = await verifyBusinessAccess(userId, appointment.business_id);
+      if (!hasAccess) {
+        return res.status(403).json({
+          ok: false,
+          error: 'Access denied',
+          code: 'FORBIDDEN'
+        });
+      }
+    }
+    
     const conflict = await db.resolveConflict(id, resolvedBy || 'user');
     
     // Update appointment to remove conflict flag if no more conflicts
@@ -1061,9 +1329,10 @@ app.post('/api/twilio/sms/inbound', async (req, res) => {
   }
 });
 
-// Outbound SMS - Send SMS from dashboard
-app.post('/api/twilio/sms/outbound', async (req, res) => {
+// Outbound SMS - Send SMS from dashboard (Protected)
+app.post('/api/twilio/sms/outbound', requireAuth, async (req, res) => {
   const { leadId, phoneNumber, message } = req.body;
+  const { userId, isDemo } = req.authContext;
 
   if (!leadId || !phoneNumber || !message) {
     return res.status(400).json({ 
@@ -1080,6 +1349,28 @@ app.post('/api/twilio/sms/outbound', async (req, res) => {
   }
 
   try {
+    // Get the lead first to verify ownership
+    const lead = await db.getLeadById(leadId);
+    
+    if (!lead) {
+      return res.status(404).json({
+        ok: false,
+        error: 'Lead not found'
+      });
+    }
+    
+    // SECURITY: Verify user has access to this lead's business
+    if (!isDemo) {
+      const { hasAccess } = await verifyBusinessAccess(userId, lead.business_id);
+      if (!hasAccess) {
+        return res.status(403).json({
+          ok: false,
+          error: 'Access denied',
+          code: 'FORBIDDEN'
+        });
+      }
+    }
+    
     // Format phone number
     const formattedPhone = twilioService.formatPhoneNumber(phoneNumber);
 
@@ -1115,11 +1406,34 @@ app.post('/api/twilio/sms/outbound', async (req, res) => {
   }
 });
 
-// Get SMS messages for a lead
-app.get('/api/leads/:leadId/sms', async (req, res) => {
+// Get SMS messages for a lead (Protected)
+app.get('/api/leads/:leadId/sms', requireAuth, async (req, res) => {
   const { leadId } = req.params;
+  const { userId, isDemo } = req.authContext;
 
   try {
+    // Get the lead first to verify ownership
+    const lead = await db.getLeadById(leadId);
+    
+    if (!lead) {
+      return res.status(404).json({
+        ok: false,
+        error: 'Lead not found'
+      });
+    }
+    
+    // SECURITY: Verify user has access to this lead's business
+    if (!isDemo) {
+      const { hasAccess } = await verifyBusinessAccess(userId, lead.business_id);
+      if (!hasAccess) {
+        return res.status(403).json({
+          ok: false,
+          error: 'Access denied',
+          code: 'FORBIDDEN'
+        });
+      }
+    }
+    
     const messages = await db.getSMSMessagesByLead(leadId);
     res.status(200).json({ ok: true, data: messages });
   } catch (error) {
@@ -1405,7 +1719,10 @@ app.get('/api/business/:slug', async (req, res) => {
         phone: business.phone,
         email: business.email,
         industry: business.industry,
-        serviceZipCodes: business.service_zip_codes || [],
+        logo_url: business.logo_url,
+        color_scheme: business.color_scheme || 'default',
+        zip_codes: business.zip_codes || business.service_zip_codes || [],
+        serviceZipCodes: business.zip_codes || business.service_zip_codes || [], // Backward compatibility
         services: business.services || [],
         hours: business.hours || {},
         pricing: business.pricing || {},
@@ -1458,7 +1775,10 @@ app.get('/api/businesses', async (req, res) => {
       phone: business.phone,
       email: business.email,
       industry: business.industry,
-      serviceZipCodes: business.service_zip_codes || [],
+      logo_url: business.logo_url,
+      zip_codes: business.zip_codes || business.service_zip_codes || [],
+      serviceZipCodes: business.zip_codes || business.service_zip_codes || [], // Backward compatibility
+      color_scheme: business.color_scheme || 'default',
       services: business.services || [],
       hours: business.hours || {},
       pricing: business.pricing || {},
@@ -1503,3 +1823,329 @@ app.get('/api/auth/businesses', requireAuth, async (req, res) => {
     });
   }
 });
+
+// GET /api/business/:businessId/team - Get team members for a business (Protected)
+app.get('/api/business/:businessId/team', requireAuth, requireBusinessOwnership, async (req, res) => {
+  const { verifiedBusinessId } = req.authContext;
+  
+  try {
+    const { data, error } = await supabase
+      .from('business_users')
+      .select(`
+        user_id,
+        role,
+        is_default,
+        created_at,
+        profiles:user_id (
+          full_name,
+          phone
+        )
+      `)
+      .eq('business_id', verifiedBusinessId);
+    
+    if (error) throw error;
+    
+    // Get user emails from auth.users
+    const teamWithEmails = [];
+    for (const member of data || []) {
+      const { data: authUser } = await supabase.auth.admin.getUserById(member.user_id);
+      teamWithEmails.push({
+        user_id: member.user_id,
+        email: authUser?.user?.email || 'Unknown',
+        role: member.role,
+        is_default: member.is_default,
+        full_name: member.profiles?.full_name,
+        phone: member.profiles?.phone,
+        created_at: member.created_at
+      });
+    }
+    
+    res.status(200).json({
+      ok: true,
+      data: teamWithEmails
+    });
+  } catch (error) {
+    console.error('Error fetching team members:', error);
+    res.status(500).json({
+      ok: false,
+      error: 'Failed to fetch team members',
+      details: error.message
+    });
+  }
+});
+
+// POST /api/business/:businessId/invite - Invite a team member (Protected)
+app.post('/api/business/:businessId/invite', requireAuth, requireBusinessOwnership, async (req, res) => {
+  const { verifiedBusinessId, businessRole } = req.authContext;
+  const { email, role } = req.body;
+  
+  if (!email || !role) {
+    return res.status(400).json({
+      ok: false,
+      error: 'Email and role are required'
+    });
+  }
+  
+  if (!['staff', 'manager'].includes(role)) {
+    return res.status(400).json({
+      ok: false,
+      error: 'Role must be staff or manager'
+    });
+  }
+  
+  // SECURITY: Only owners and managers can invite team members
+  if (businessRole !== 'owner' && businessRole !== 'manager') {
+    return res.status(403).json({
+      ok: false,
+      error: 'Only owners and managers can invite team members',
+      code: 'INSUFFICIENT_PERMISSIONS'
+    });
+  }
+  
+  try {
+    // Check if user exists in Supabase Auth
+    const { data: existingUsers } = await supabase.auth.admin.listUsers();
+    const existingUser = existingUsers?.users?.find(u => u.email === email);
+    
+    let userId;
+    
+    if (existingUser) {
+      // User already exists
+      userId = existingUser.id;
+      
+      // Check if already linked to this business
+      const { data: existing } = await supabase
+        .from('business_users')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('business_id', verifiedBusinessId)
+        .single();
+      
+      if (existing) {
+        return res.status(400).json({
+          ok: false,
+          error: 'User is already a team member of this business'
+        });
+      }
+    } else {
+      // Create new user with random password (they'll need to reset)
+      const randomPassword = Math.random().toString(36).slice(-8) + 'Aa1!';
+      const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+        email,
+        password: randomPassword,
+        email_confirm: true
+      });
+      
+      if (createError) throw createError;
+      userId = newUser.user.id;
+      
+      // Create profile
+      await supabase.from('profiles').insert({
+        id: userId,
+        full_name: email.split('@')[0] // Default name from email
+      });
+    }
+    
+    // Link user to business
+    const { error: linkError } = await supabase
+      .from('business_users')
+      .insert({
+        user_id: userId,
+        business_id: verifiedBusinessId,
+        role: role,
+        is_default: false
+      });
+    
+    if (linkError) throw linkError;
+    
+    logger.info(`Team member invited`, {
+      businessId: verifiedBusinessId,
+      email,
+      role,
+      userId,
+      invitedBy: req.authContext.userId
+    });
+    
+    res.status(200).json({
+      ok: true,
+      message: 'Team member invited successfully',
+      userId
+    });
+  } catch (error) {
+    console.error('Error inviting team member:', error);
+    res.status(500).json({
+      ok: false,
+      error: 'Failed to invite team member',
+      details: error.message
+    });
+  }
+});
+
+// ============================================================================
+// BUSINESS ONBOARDING
+// ============================================================================
+
+// POST /api/business/create - Create new business during onboarding (Protected)
+app.post('/api/business/create', requireAuth, async (req, res) => {
+  const { userId } = req.authContext;
+  const { businessName, industry, phone, email, zipCodes, logoPath, colorScheme } = req.body;
+  
+  // Validation
+  if (!businessName || businessName.trim().length < 2) {
+    return res.status(400).json({
+      ok: false,
+      error: 'Business name is required (minimum 2 characters)',
+      code: 'INVALID_BUSINESS_NAME'
+    });
+  }
+  
+  if (!industry) {
+    return res.status(400).json({
+      ok: false,
+      error: 'Industry is required',
+      code: 'INVALID_INDUSTRY'
+    });
+  }
+  
+  if (!phone) {
+    return res.status(400).json({
+      ok: false,
+      error: 'Phone number is required',
+      code: 'INVALID_PHONE'
+    });
+  }
+  
+  if (!email) {
+    return res.status(400).json({
+      ok: false,
+      error: 'Email is required',
+      code: 'INVALID_EMAIL'
+    });
+  }
+  
+  if (!Array.isArray(zipCodes) || zipCodes.length === 0) {
+    return res.status(400).json({
+      ok: false,
+      error: 'At least one ZIP code is required',
+      code: 'INVALID_ZIP_CODES'
+    });
+  }
+  
+  try {
+    // Check if user already has a business (limit to 1 for MVP)
+    const existingBusinesses = await getUserBusinesses(userId);
+    if (existingBusinesses && existingBusinesses.length > 0) {
+      return res.status(400).json({
+        ok: false,
+        error: 'You already have a business. Multiple businesses not supported in MVP.',
+        code: 'BUSINESS_LIMIT_REACHED',
+        existingBusinessId: existingBusinesses[0].id
+      });
+    }
+    
+    // Generate unique slug from business name
+    const baseSlug = businessName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    
+    let slug = baseSlug;
+    let slugAttempt = 0;
+    let isSlugUnique = false;
+    
+    // Ensure slug is unique
+    while (!isSlugUnique && slugAttempt < 10) {
+      const { data: existing } = await supabase
+        .from('businesses')
+        .select('id')
+        .eq('slug', slug)
+        .single();
+      
+      if (!existing) {
+        isSlugUnique = true;
+      } else {
+        slugAttempt++;
+        slug = `${baseSlug}-${slugAttempt}`;
+      }
+    }
+    
+    if (!isSlugUnique) {
+      return res.status(500).json({
+        ok: false,
+        error: 'Failed to generate unique business URL',
+        code: 'SLUG_GENERATION_FAILED'
+      });
+    }
+    
+    // Create business record
+    const { data: business, error: businessError } = await supabase
+      .from('businesses')
+      .insert({
+        name: businessName.trim(),
+        slug: slug,
+        industry: industry,
+        phone: phone,
+        email: email,
+        service_zip_codes: zipCodes,
+        is_active: true,
+        onboarding_completed: true
+      })
+      .select()
+      .single();
+    
+    if (businessError) {
+      console.error('Error creating business:', businessError);
+      throw businessError;
+    }
+    
+    // Link user to business as owner
+    const { error: linkError } = await supabase
+      .from('business_users')
+      .insert({
+        user_id: userId,
+        business_id: business.id,
+        role: 'owner',
+        is_default: true // This is the user's default business
+      });
+    
+    if (linkError) {
+      console.error('Error linking user to business:', linkError);
+      // Rollback: delete the business
+      await supabase.from('businesses').delete().eq('id', business.id);
+      throw linkError;
+    }
+    
+    logger.info(`Business created during onboarding`, {
+      businessId: business.id,
+      businessName: business.name,
+      slug: business.slug,
+      userId,
+      industry,
+      zipCodes
+    });
+    
+    res.status(201).json({
+      ok: true,
+      message: 'Business created successfully',
+      business: {
+        id: business.id,
+        name: business.name,
+        slug: business.slug,
+        industry: business.industry,
+        phone: business.phone,
+        email: business.email,
+        service_zip_codes: business.service_zip_codes,
+        is_active: business.is_active,
+        publicUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/b/${business.slug}`
+      }
+    });
+  } catch (error) {
+    console.error('Error creating business:', error);
+    res.status(500).json({
+      ok: false,
+      error: 'Failed to create business',
+      details: error.message
+    });
+  }
+});
+

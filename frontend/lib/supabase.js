@@ -9,19 +9,36 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-let supabaseClient = null;
-
-if (supabaseUrl && supabaseAnonKey) {
-  supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true
-    }
-  });
-} else {
-  console.warn('⚠️  Supabase not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY');
+// Validate environment variables at build time
+if (!supabaseUrl || !supabaseAnonKey) {
+  if (typeof window === 'undefined') {
+    // Server-side: Log error during build/SSR
+    console.error('❌ CRITICAL: Missing Supabase configuration!');
+    console.error('❌ Required environment variables:');
+    console.error('   - NEXT_PUBLIC_SUPABASE_URL');
+    console.error('   - NEXT_PUBLIC_SUPABASE_ANON_KEY');
+    console.error('❌ Add these to /frontend/.env.local');
+  }
 }
+
+// Create Supabase client with enhanced configuration
+const supabaseClient = supabaseUrl && supabaseAnonKey
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+        storageKey: 'deskai-auth-token',
+        flowType: 'pkce'
+      },
+      global: {
+        headers: {
+          'x-application-name': 'desk.ai'
+        }
+      }
+    })
+  : null;
 
 export const supabase = supabaseClient;
 
@@ -77,6 +94,16 @@ export async function signIn(email, password) {
 
 /**
  * Sign up with email and password
+ * 
+ * Returns a safe structured object that handles email confirmation:
+ * {
+ *   user: User | null,
+ *   session: Session | null,
+ *   emailConfirmationRequired: boolean
+ * }
+ * 
+ * When Supabase email confirmation is enabled, data.user will be null
+ * until the user confirms their email. This function safely handles that case.
  */
 export async function signUp(email, password, metadata = {}) {
   if (!supabase) {
@@ -95,7 +122,13 @@ export async function signUp(email, password, metadata = {}) {
     throw error;
   }
   
-  return data;
+  // Return safe structured object
+  // If data.user is null, email confirmation is required
+  return {
+    user: data.user ?? null,
+    session: data.session ?? null,
+    emailConfirmationRequired: !data.user
+  };
 }
 
 /**

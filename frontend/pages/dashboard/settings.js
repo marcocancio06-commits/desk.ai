@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Layout from './components/Layout';
-import { withAuth } from '../../contexts/AuthContext';
+import { withAuth, useAuth } from '../../contexts/AuthContext';
 
 function Settings() {
   const router = useRouter();
+  const { currentBusiness, businessLoading, businesses, switchBusiness, getCurrentBusinessId } = useAuth();
   const [calendarStatus, setCalendarStatus] = useState(null);
-  const [loadingCalendar, setLoadingCalendar] = useState(true);
+  const [loadingCalendar, setLoadingCalendar] = useState(false); // Changed from true
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -14,15 +15,26 @@ function Settings() {
   
   // Twilio SMS state
   const [twilioStatus, setTwilioStatus] = useState(null);
-  const [loadingTwilio, setLoadingTwilio] = useState(true);
-
-  const businessId = 'demo-business-001';
+  const [loadingTwilio, setLoadingTwilio] = useState(false); // Changed from true
   
-  const businessInfo = {
-    name: 'Your Service Business',
-    phone: '+1-555-123-4567',
+  // Team members state
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('staff');
+  const [inviting, setInviting] = useState(false);
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [loadingTeam, setLoadingTeam] = useState(false); // Changed from true
+  
+  const businessInfo = currentBusiness ? {
+    name: currentBusiness.name,
+    phone: currentBusiness.phone,
     email: 'owner@business.com',
-    serviceAreas: ['77005', '77030', '77098'],
+    serviceAreas: currentBusiness.service_zip_codes || [],
+  } : {
+    name: 'Loading...',
+    phone: '',
+    email: '',
+    serviceAreas: [],
   };
   
   const businessHours = {
@@ -49,8 +61,20 @@ function Settings() {
     }
   }, [router.query]);
 
+  // Reload data when business changes
+  useEffect(() => {
+    if (currentBusiness && !businessLoading) {
+      fetchCalendarStatus();
+      fetchTwilioStatus();
+      fetchTeamMembers();
+    }
+  }, [currentBusiness, businessLoading]);
+
   // Fetch calendar connection status
   const fetchCalendarStatus = async () => {
+    const businessId = getCurrentBusinessId();
+    if (!businessId) return;
+    
     try {
       const response = await fetch(
         `http://localhost:3001/api/google/status?businessId=${businessId}`
@@ -72,11 +96,6 @@ function Settings() {
     }
   };
 
-  useEffect(() => {
-    fetchCalendarStatus();
-    fetchTwilioStatus();
-  }, []);
-
   // Fetch Twilio SMS status
   const fetchTwilioStatus = async () => {
     try {
@@ -93,6 +112,61 @@ function Settings() {
       setTwilioStatus({ configured: false });
     } finally {
       setLoadingTwilio(false);
+    }
+  };
+
+  // Fetch team members for current business
+  const fetchTeamMembers = async () => {
+    const businessId = getCurrentBusinessId();
+    if (!businessId) return;
+    
+    try {
+      const response = await fetch(`http://localhost:3001/api/business/${businessId}/team`);
+      const data = await response.json();
+      
+      if (data.ok) {
+        setTeamMembers(data.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching team members:', error);
+    } finally {
+      setLoadingTeam(false);
+    }
+  };
+
+  // Invite team member
+  const handleInviteTeamMember = async (e) => {
+    e.preventDefault();
+    const businessId = getCurrentBusinessId();
+    if (!businessId) return;
+    
+    setInviting(true);
+    try {
+      const response = await fetch(`http://localhost:3001/api/business/${businessId}/invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: inviteEmail,
+          role: inviteRole 
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.ok) {
+        setMessage({ type: 'success', text: 'Team member invited successfully!' });
+        setShowInviteModal(false);
+        setInviteEmail('');
+        setInviteRole('staff');
+        fetchTeamMembers();
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to invite team member' });
+      }
+    } catch (error) {
+      console.error('Error inviting team member:', error);
+      setMessage({ type: 'error', text: 'Failed to send invitation' });
+    } finally {
+      setInviting(false);
     }
   };
 
@@ -172,11 +246,31 @@ function Settings() {
     <Layout>
       {/* Enhanced Gradient Header */}
       <div className="bg-gradient-to-br from-blue-50/80 via-indigo-50/40 to-transparent -m-8 p-8 mb-8">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent mb-2">
-            Settings
-          </h1>
-          <p className="text-slate-600">Configure your business and AI preferences</p>
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent mb-2">
+              Settings
+            </h1>
+            <p className="text-slate-600">Configure your business and AI preferences</p>
+          </div>
+          
+          {/* Business Selector (if multiple businesses) */}
+          {businesses && businesses.length > 1 && (
+            <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200 px-4 py-3">
+              <label className="block text-xs font-semibold text-slate-600 mb-2">Viewing Settings For:</label>
+              <select
+                value={currentBusiness?.id || ''}
+                onChange={(e) => switchBusiness(e.target.value)}
+                className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[200px]"
+              >
+                {businesses.map((biz) => (
+                  <option key={biz.id} value={biz.id}>
+                    {biz.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
@@ -693,6 +787,64 @@ function Settings() {
           </div>
         </div>
 
+        {/* Team Management */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-slate-200">
+          <div className="px-6 py-5 border-b border-slate-200 bg-gradient-to-r from-emerald-50 to-white">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <svg className="w-6 h-6 text-emerald-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <h2 className="text-lg font-bold text-slate-900">Team Management</h2>
+              </div>
+              <button
+                onClick={() => setShowInviteModal(true)}
+                className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:from-emerald-700 hover:to-teal-700 transition-all shadow-md hover:shadow-lg font-medium text-sm"
+              >
+                + Invite Team Member
+              </button>
+            </div>
+          </div>
+          <div className="px-6 py-6">
+            {loadingTeam ? (
+              <div className="flex justify-center py-8">
+                <div className="inline-block w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : teamMembers.length === 0 ? (
+              <div className="text-center py-8">
+                <svg className="w-12 h-12 text-slate-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <p className="text-slate-600 font-medium">No team members yet</p>
+                <p className="text-sm text-slate-500 mt-1">Click "Invite Team Member" to add staff or managers</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {teamMembers.map((member) => (
+                  <div key={member.user_id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 flex items-center justify-center text-white font-bold text-sm">
+                        {member.email?.[0]?.toUpperCase() || '?'}
+                      </div>
+                      <div className="ml-3">
+                        <p className="font-medium text-slate-900">{member.email}</p>
+                        <p className="text-xs text-slate-500 capitalize">{member.role}</p>
+                      </div>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      member.role === 'owner' ? 'bg-purple-100 text-purple-700' :
+                      member.role === 'manager' ? 'bg-blue-100 text-blue-700' :
+                      'bg-slate-100 text-slate-700'
+                    }`}>
+                      {member.role}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Integrations - Other */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-slate-200">
           <div className="px-6 py-5 border-b border-slate-200 bg-gradient-to-r from-purple-50 to-white">
@@ -801,6 +953,72 @@ function Settings() {
           </div>
         </div>
       </div>
+
+      {/* Invite Team Member Modal */}
+      {showInviteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-slate-900">Invite Team Member</h3>
+              <button
+                onClick={() => setShowInviteModal(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <form onSubmit={handleInviteTeamMember} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  className="w-full px-4 py-2 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="colleague@example.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Role
+                </label>
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value)}
+                  className="w-full px-4 py-2 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="staff">Staff</option>
+                  <option value="manager">Manager</option>
+                </select>
+                <p className="text-xs text-slate-500 mt-2">
+                  Staff can view leads. Managers can edit settings.
+                </p>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowInviteModal(false)}
+                  className="flex-1 px-4 py-2 border-2 border-slate-200 rounded-lg text-slate-700 font-medium hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={inviting}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:from-emerald-700 hover:to-teal-700 transition-all shadow-md hover:shadow-lg font-medium disabled:opacity-50"
+                >
+                  {inviting ? 'Sending...' : 'Send Invite'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }

@@ -4,25 +4,32 @@ import MetricCard from '../../components/ui/StatCard';
 import EmptyState from '../../components/ui/EmptyState';
 import QuickActionCard from '../../components/ui/QuickActionCard';
 import RecentActivityTimeline from '../../components/dashboard/RecentActivityTimeline';
-import { BACKEND_URL, DEFAULT_BUSINESS_ID } from '../../lib/config';
-import { withAuth } from '../../contexts/AuthContext';
+import { BACKEND_URL } from '../../lib/config';
+import { withAuth, useAuth } from '../../contexts/AuthContext';
 import { getAuthHeader } from '../../lib/supabase';
 
 function Dashboard() {
+  const { currentBusiness, businessLoading, getCurrentBusinessId } = useAuth();
   const [leads, setLeads] = useState([]);
   const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Only for data fetching, not business loading
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   
   const fetchData = async () => {
-    const isRefresh = !loading; // Are we refreshing (vs initial load)?
+    const businessId = getCurrentBusinessId();
+    if (!businessId) {
+      console.warn('No business selected');
+      return;
+    }
+    
+    const isRefresh = loading || refreshing; // Are we refreshing (vs initial load)?
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     
     try {
       const authHeader = await getAuthHeader();
-      const res = await fetch(`${BACKEND_URL}/api/leads`, {
+      const res = await fetch(`${BACKEND_URL}/api/leads?businessId=${businessId}`, {
         headers: authHeader
       });
       
@@ -44,8 +51,11 @@ function Dashboard() {
   };
   
   useEffect(() => {
-    fetchData();
-  }, []);
+    // Only fetch data when we have a business and business loading is complete
+    if (currentBusiness && !businessLoading) {
+      fetchData();
+    }
+  }, [currentBusiness, businessLoading]);
   
   const handleRefresh = () => {
     fetchData();
@@ -69,7 +79,8 @@ function Dashboard() {
   // Recent activity (last 5 leads)
   const recentLeads = leads.slice(0, 5);
   
-  if (loading) {
+  // Show loading only while fetching data (not while waiting for business to load)
+  if (loading && !currentBusiness) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
@@ -96,6 +107,40 @@ function Dashboard() {
           }
           title="Failed to load dashboard"
           subtitle={`${error}. Make sure the backend server is running on ${BACKEND_URL}`}
+        />
+      </Layout>
+    );
+  }
+
+  // No business associated with user - show onboarding CTA (only after business loading completes)
+  if (!currentBusiness && !businessLoading) {
+    return (
+      <Layout>
+        <div className="bg-gradient-to-r from-blue-50 via-white to-blue-50 -m-8 p-8 mb-8">
+          <div className="max-w-7xl mx-auto">
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">Welcome to Desk.ai</h1>
+            <p className="text-slate-600">Let's get your business set up</p>
+          </div>
+        </div>
+        <EmptyState
+          icon={
+            <svg className="w-10 h-10 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+          }
+          title="No business connected"
+          subtitle="You haven't set up a business yet. Complete onboarding to start managing leads and appointments."
+          action={
+            <a
+              href="/onboarding"
+              className="inline-flex items-center gap-2 px-6 py-3 text-base font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+              Get Started
+            </a>
+          }
         />
       </Layout>
     );

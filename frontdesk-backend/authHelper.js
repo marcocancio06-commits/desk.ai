@@ -281,6 +281,87 @@ async function requireBusiness(req, res, next) {
 }
 
 /**
+ * Verify user has access to a specific business
+ * Checks business_users table for ownership/membership
+ * @param {string} userId - User ID
+ * @param {string} businessId - Business ID to check access for
+ * @returns {Promise<{hasAccess: boolean, role: string|null}>}
+ */
+async function verifyBusinessAccess(userId, businessId) {
+  if (!supabase) {
+    return { hasAccess: false, role: null };
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('business_users')
+      .select('role')
+      .eq('user_id', userId)
+      .eq('business_id', businessId)
+      .single();
+
+    if (error || !data) {
+      return { hasAccess: false, role: null };
+    }
+
+    return { hasAccess: true, role: data.role };
+  } catch (error) {
+    console.error('Error verifying business access:', error);
+    return { hasAccess: false, role: null };
+  }
+}
+
+/**
+ * Express middleware to verify user owns or has access to the business in the request
+ * Requires businessId in req.params or req.query or req.body
+ * Usage: app.get('/api/business/:businessId/data', requireAuth, requireBusinessOwnership, ...)
+ */
+async function requireBusinessOwnership(req, res, next) {
+  const context = req.authContext;
+  
+  if (!context || !context.userId) {
+    return res.status(401).json({
+      ok: false,
+      error: 'Authentication required',
+      code: 'UNAUTHORIZED'
+    });
+  }
+
+  // Demo mode allows access
+  if (context.isDemo) {
+    return next();
+  }
+
+  // Get businessId from params, query, or body
+  const requestedBusinessId = req.params.businessId || req.query.businessId || req.body?.businessId;
+  
+  if (!requestedBusinessId) {
+    return res.status(400).json({
+      ok: false,
+      error: 'business_id required',
+      code: 'BUSINESS_ID_REQUIRED'
+    });
+  }
+
+  // Verify user has access to this business
+  const { hasAccess, role } = await verifyBusinessAccess(context.userId, requestedBusinessId);
+  
+  if (!hasAccess) {
+    return res.status(403).json({
+      ok: false,
+      error: 'Access denied - you do not have permission to access this business',
+      code: 'FORBIDDEN'
+    });
+  }
+
+  // Attach verified business info to context
+  req.authContext.verifiedBusinessId = requestedBusinessId;
+  req.authContext.businessRole = role;
+  
+  next();
+}
+
+/**
  * Get all businesses a user has access to
  * @param {string} userId - User ID
  * @returns {Promise<Array>} Array of businesses with user roles
@@ -333,5 +414,7 @@ module.exports = {
   getContextFromRequest,
   requireAuth,
   requireBusiness,
+  requireBusinessOwnership,
+  verifyBusinessAccess,
   getUserBusinesses
 };

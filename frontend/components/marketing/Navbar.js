@@ -35,12 +35,20 @@ export default function Navbar() {
               Demo
             </Link>
             
+            {/* Sign In Button */}
+            <Link 
+              href="/get-started"
+              className="text-gray-600 hover:text-gray-900 transition-colors font-medium"
+            >
+              Sign in
+            </Link>
+            
             {/* CTA Button */}
             <Link 
-              href="/demo-chat"
+              href="/get-started"
               className="inline-flex items-center px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-all shadow-sm"
             >
-              Start free
+              Get started
               <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
@@ -95,11 +103,18 @@ export default function Navbar() {
               Demo
             </Link>
             <Link
-              href="/demo-chat"
+              href="/get-started"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block px-3 py-2 rounded-lg text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors"
+            >
+              Sign in
+            </Link>
+            <Link
+              href="/get-started"
               onClick={() => setMobileMenuOpen(false)}
               className="block mx-3 mt-4 px-5 py-2.5 text-center text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-all"
             >
-              Start free →
+              Get started →
             </Link>
           </div>
         </div>

@@ -1,9 +1,18 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import Logo from '../../../components/Logo';
+import { useAuth } from '../../../contexts/AuthContext';
 
 export default function Sidebar({ isOpen, onClose }) {
   const router = useRouter();
+  const { user, currentBusiness, businesses, businessLoading, switchBusiness, signOut } = useAuth();
+  
+  // Determine what to display for business name
+  const getBusinessDisplayName = () => {
+    if (businessLoading) return 'Loading...';
+    if (!currentBusiness) return 'No Business';
+    return currentBusiness.name;
+  };
   
   const navigation = [
     { 
@@ -64,7 +73,9 @@ export default function Sidebar({ isOpen, onClose }) {
               <Logo variant="minimal" showText={false} size={40} linkTo="/dashboard" />
               <div>
                 <h2 className="text-white font-bold text-lg tracking-tight">Desk.ai</h2>
-                <p className="text-blue-100 text-xs font-medium">Owner Dashboard</p>
+                <p className="text-blue-100 text-xs font-medium">
+                  {getBusinessDisplayName()}
+                </p>
               </div>
             </div>
           </div>
@@ -98,8 +109,26 @@ export default function Sidebar({ isOpen, onClose }) {
           <div className="border-t border-slate-800"></div>
         </div>
         
+        {/* Business Selector (if multiple businesses) */}
+        {businesses && businesses.length > 1 && (
+          <div className="px-4 py-3">
+            <label className="block text-xs font-medium text-slate-400 mb-2">Switch Business</label>
+            <select
+              value={currentBusiness?.id || ''}
+              onChange={(e) => switchBusiness(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {businesses.map((biz) => (
+                <option key={biz.id} value={biz.id}>
+                  {biz.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        
         {/* Bottom section */}
-        <div className="p-4">
+        <div className="p-4 space-y-2">
           <Link
             href="/demo-chat"
             className="flex items-center justify-center px-4 py-3 text-sm font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg transition-all shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 hover:scale-105"
@@ -109,6 +138,16 @@ export default function Sidebar({ isOpen, onClose }) {
             </svg>
             Demo Chat
           </Link>
+          
+          <button
+            onClick={signOut}
+            className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Log Out
+          </button>
         </div>
       </div>
       
@@ -124,7 +163,9 @@ export default function Sidebar({ isOpen, onClose }) {
               <Logo variant="minimal" showText={false} size={40} linkTo="/dashboard" onClick={onClose} />
               <div>
                 <h2 className="text-white font-bold text-lg tracking-tight">Desk.ai</h2>
-                <p className="text-blue-100 text-xs font-medium">Owner Dashboard</p>
+                <p className="text-blue-100 text-xs font-medium">
+                  {getBusinessDisplayName()}
+                </p>
               </div>
             </div>
             <button
@@ -167,8 +208,26 @@ export default function Sidebar({ isOpen, onClose }) {
           <div className="border-t border-slate-800"></div>
         </div>
         
+        {/* Business Selector (if multiple businesses) */}
+        {businesses && businesses.length > 1 && (
+          <div className="px-4 py-3">
+            <label className="block text-xs font-medium text-slate-400 mb-2">Switch Business</label>
+            <select
+              value={currentBusiness?.id || ''}
+              onChange={(e) => switchBusiness(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {businesses.map((biz) => (
+                <option key={biz.id} value={biz.id}>
+                  {biz.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        
         {/* Bottom section */}
-        <div className="absolute bottom-0 left-0 right-0 p-4">
+        <div className="absolute bottom-0 left-0 right-0 p-4 space-y-2">
           <Link
             href="/demo-chat"
             onClick={onClose}
@@ -179,6 +238,19 @@ export default function Sidebar({ isOpen, onClose }) {
             </svg>
             Demo Chat
           </Link>
+          
+          <button
+            onClick={() => {
+              onClose();
+              signOut();
+            }}
+            className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Log Out
+          </button>
         </div>
       </div>
       
