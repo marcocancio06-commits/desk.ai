@@ -1,3 +1,5 @@
+import { MARKETPLACE_ENABLED } from '../../lib/featureFlags';
+
 export default function PricingSection() {
   return (
     <section className="py-20 sm:py-24 bg-white">

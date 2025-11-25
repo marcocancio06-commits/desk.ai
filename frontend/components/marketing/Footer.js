@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { MARKETPLACE_ENABLED } from '../lib/featureFlags';
+import { MARKETPLACE_ENABLED } from '../../lib/featureFlags';
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();

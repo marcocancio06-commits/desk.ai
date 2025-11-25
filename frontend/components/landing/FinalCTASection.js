@@ -1,4 +1,4 @@
-import { MARKETPLACE_ENABLED } from '../lib/featureFlags';
+import { MARKETPLACE_ENABLED } from '../../lib/featureFlags';
 
 export default function FinalCTASection() {
   return (

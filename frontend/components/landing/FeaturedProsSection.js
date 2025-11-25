@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { MARKETPLACE_ENABLED } from '../lib/featureFlags';
+import { MARKETPLACE_ENABLED } from '../../lib/featureFlags';
 
 export default function FeaturedProsSection() {
   // FEATURE FLAG: Don't render if marketplace is disabled
