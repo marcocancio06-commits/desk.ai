@@ -25,6 +25,9 @@ export default function Signup() {
   const [error, setError] = useState(null);
   const [emailConfirmationRequired, setEmailConfirmationRequired] = useState(false);
 
+  // Check if Supabase is configured
+  const isSupabaseConfigured = !!supabase;
+
   // Set role from query params
   useEffect(() => {
     if (roleParam) {
@@ -46,30 +49,24 @@ export default function Signup() {
     try {
       // Validation
       if (!email || !password) {
-        setError('Email and password are required');
-        setLoading(false);
-        return;
+        throw new Error('Email and password are required');
       }
       
       if (password.length < 6) {
-        setError('Password must be at least 6 characters');
-        setLoading(false);
-        return;
+        throw new Error('Password must be at least 6 characters');
       }
       
       if (password !== confirmPassword) {
-        setError('Passwords do not match');
-        setLoading(false);
-        return;
+        throw new Error('Passwords do not match');
       }
       
       // Create Supabase Auth user
-      console.log('Creating auth user with role:', userRole);
+      console.log('🔐 Creating auth user with role:', userRole);
       const authData = await signUp(email, password, {
         role: userRole // Pass role as metadata
       });
       
-      console.log('SignUp response:', { 
+      console.log('📧 SignUp response:', { 
         hasUser: !!authData?.user, 
         hasSession: !!authData?.session,
         emailConfirmationRequired: authData?.emailConfirmationRequired 
@@ -77,7 +74,7 @@ export default function Signup() {
       
       // Check if email confirmation is required
       if (authData && authData.emailConfirmationRequired) {
-        console.log('Email confirmation required');
+        console.log('✉️ Email confirmation required');
         setEmailConfirmationRequired(true);
         setLoading(false);
         return;
@@ -85,44 +82,57 @@ export default function Signup() {
       
       // User created successfully, check if we have a user object
       if (!authData || !authData.user) {
-        console.error('Invalid signup response:', authData);
+        console.error('❌ Invalid signup response:', authData);
         throw new Error('Failed to create user - invalid response from server');
       }
       
       const userId = authData.user.id;
-      console.log('Auth user created:', userId);
+      console.log('✅ Auth user created:', userId);
       
       // Create profile with role
-      console.log('Creating profile with role:', userRole);
+      console.log('👤 Creating profile with role:', userRole);
       await upsertProfile(userId, {
         full_name: email.split('@')[0], // Default name from email
         role: userRole
       });
       
-      console.log('✅ Profile created with role:', userRole);
+      console.log('✅ Profile created successfully');
       
       // Success! Redirect based on role
       // Note: We intentionally keep loading=true during redirect for UX
       if (userRole === 'owner') {
-        console.log('Redirecting owner to onboarding...');
-        await router.push('/onboarding');
+        console.log('🏢 Redirecting owner to onboarding...');
+        router.push('/onboarding');
       } else {
         // Customers go to marketplace (if enabled) or client page
         if (MARKETPLACE_ENABLED) {
-          console.log('Redirecting customer to marketplace...');
-          await router.push('/marketplace');
+          console.log('🛒 Redirecting customer to marketplace...');
+          router.push('/marketplace');
         } else {
-          console.log('Redirecting customer to client page...');
-          await router.push('/client');
+          console.log('👥 Redirecting customer to client page...');
+          router.push('/client');
         }
       }
       
-      // If redirect somehow doesn't complete, ensure loading is reset
-      setLoading(false);
+      // Note: We intentionally don't reset loading here because we're redirecting
+      // The page will unmount during navigation
       
     } catch (err) {
-      console.error('Signup error:', err);
-      setError(err.message || 'Failed to create account. Please try again.');
+      console.error('❌ Signup error:', err);
+      
+      // User-friendly error messages
+      let errorMessage = 'Failed to create account. Please try again.';
+      if (err.message.includes('already registered')) {
+        errorMessage = 'This email is already registered. Try logging in instead.';
+      } else if (err.message.includes('Password')) {
+        errorMessage = err.message;
+      } else if (err.message.includes('Supabase not configured')) {
+        errorMessage = 'Authentication service is not configured. Please contact support.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
       setLoading(false);
     }
   };
@@ -222,6 +232,22 @@ export default function Signup() {
 
         <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
           <div className="bg-slate-900/60 backdrop-blur-xl py-8 px-4 shadow-[0_20px_60px_rgba(0,0,0,0.7)] rounded-2xl sm:px-10 border border-white/10">
+            {/* Configuration Error */}
+            {!isSupabaseConfigured && (
+              <div className="mb-6 bg-red-500/10 border border-red-400/30 rounded-xl p-4">
+                <div className="flex">
+                  <svg className="w-5 h-5 text-red-400 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-red-300 mb-1">Authentication Not Configured</p>
+                    <p className="text-xs text-red-400">Supabase environment variables are missing. Please contact support.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Signup Error */}
             {error && (
               <div className="mb-6 bg-red-500/10 border border-red-400/30 rounded-xl p-4">
                 <div className="flex">
@@ -295,10 +321,12 @@ export default function Signup() {
             <div>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !isSupabaseConfigured}
                 className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-indigo-500 via-purple-500 to-fuchsia-500 hover:from-indigo-600 hover:via-purple-600 hover:to-fuchsia-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl"
               >
-                {loading ? (
+                {!isSupabaseConfigured ? (
+                  'Service Unavailable'
+                ) : loading ? (
                   <span className="flex items-center">
                     <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
