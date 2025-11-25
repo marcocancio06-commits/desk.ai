@@ -10,17 +10,19 @@ import { MARKETPLACE_ENABLED } from '../lib/featureFlags';
 
 export default function Home() {
   return (
-    <MarketingLayout>
+    <>
       <Navbar />
-      <DarkHeroSection />
-      <ProblemSolutionSection />
-      <FeatureShowcaseSection />
-      <div id="pricing">
-        <PricingSection />
-      </div>
-      <CTAStrip />
-      <Footer />
-    </MarketingLayout>
+      <MarketingLayout>
+        <DarkHeroSection />
+        <ProblemSolutionSection />
+        <FeatureShowcaseSection />
+        <div id="pricing">
+          <PricingSection />
+        </div>
+        <CTAStrip />
+        <Footer />
+      </MarketingLayout>
+    </>
   );
 }
 

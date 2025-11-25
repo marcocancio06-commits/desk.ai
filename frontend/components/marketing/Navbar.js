@@ -10,10 +10,10 @@ export default function Navbar() {
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
-  const { user, businesses, currentBusiness, signOut } = useAuth();
+  const { user, businesses, currentBusiness, signOut, loading } = useAuth();
   const { profile } = useCurrentUser();
 
-  // Determine auth state
+  // Determine auth state - but don't block rendering during load
   const isAuthenticated = !!user;
   const role = profile?.role || null;
   const hasBusiness = businesses && businesses.length > 0;
