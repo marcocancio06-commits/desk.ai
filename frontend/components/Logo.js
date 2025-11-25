@@ -61,7 +61,7 @@ export default function Logo({
 
   // Default text colors
   const defaultTextColor = {
-    header: 'text-gray-900',
+    header: 'text-white',
     sidebar: 'text-white',
     minimal: 'text-gray-900'
   }[variant];
