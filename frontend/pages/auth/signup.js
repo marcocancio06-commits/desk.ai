@@ -90,13 +90,29 @@ export default function Signup() {
       console.log('✅ Auth user created:', userId);
       
       // Create profile with role
+      // Important: This creates the profile in public.profiles table
+      // If this fails, the account still exists in auth.users, but without a profile
       console.log('👤 Creating profile with role:', userRole);
-      await upsertProfile(userId, {
-        full_name: email.split('@')[0], // Default name from email
-        role: userRole
-      });
-      
-      console.log('✅ Profile created successfully');
+      try {
+        await upsertProfile(userId, {
+          full_name: email.split('@')[0], // Default name from email
+          email: email, // Store email in profile for easier querying
+          role: userRole
+        });
+        console.log('✅ Profile created successfully');
+      } catch (profileError) {
+        console.error('⚠️ Profile creation failed:', profileError);
+        // Profile creation failed, but auth user exists
+        // Show a specific error about the profile issue
+        if (profileError.message?.includes('schema cache') || profileError.message?.includes('not found')) {
+          throw new Error('Database table missing. Please contact support with error: profiles table not found');
+        } else if (profileError.message?.includes('permission') || profileError.message?.includes('policy')) {
+          throw new Error('Permission error creating profile. Please contact support.');
+        } else {
+          // For other profile errors, throw the original error
+          throw profileError;
+        }
+      }
       
       // Success! Redirect based on role
       // Note: We intentionally keep loading=true during redirect for UX
