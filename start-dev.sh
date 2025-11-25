@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Desk.ai - Development Startup Script
+# This script starts both the backend and frontend development servers
+
+echo "🚀 Starting Desk.ai Development Servers..."/bash
+
 # FrontDesk AI - Development Startup Script
 # This script starts both the backend and frontend servers
 

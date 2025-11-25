@@ -2,17 +2,19 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 /**
- * Shared Desk.ai logo component
+ * Shared Logo component for Growzone and Desk.ai
  * 
  * @param {string} variant - "header" (landing page), "sidebar" (dashboard), or "minimal" (icon only)
+ * @param {string} brand - "growzone" or "deskai" (default: depends on variant)
  * @param {number} size - Size in pixels (defaults based on variant)
- * @param {boolean} showText - Whether to show "Desk.ai" text next to logo
+ * @param {boolean} showText - Whether to show brand text next to logo
  * @param {string} linkTo - Where to link (defaults: "/" for header, "/dashboard" for sidebar, null for minimal)
  * @param {string} textColor - Color class for text (default: depends on variant)
  * @param {function} onClick - Optional click handler
  */
 export default function Logo({ 
   variant = 'header',
+  brand,
   size,
   showText = true,
   linkTo,
@@ -20,6 +22,25 @@ export default function Logo({
   onClick,
   className = ''
 }) {
+  // Default brand based on variant (header = growzone, sidebar = deskai)
+  const defaultBrand = variant === 'sidebar' ? 'deskai' : 'growzone';
+  const activeBrand = brand || defaultBrand;
+  
+  // Brand text and logo config
+  const brandConfig = {
+    growzone: {
+      text: 'Growzone',
+      logo: '/deskai-logo.png', // Using same logo for now
+      alt: 'Growzone logo'
+    },
+    deskai: {
+      text: 'Desk.ai',
+      logo: '/deskai-logo.png',
+      alt: 'Desk.ai logo'
+    }
+  };
+  
+  const config = brandConfig[activeBrand];
   // Default sizes based on variant
   const defaultSize = {
     header: 40,
@@ -64,8 +85,8 @@ export default function Logo({
     >
       <div className="relative flex-shrink-0">
         <Image
-          src="/deskai-logo.png"
-          alt="Desk.ai logo"
+          src={config.logo}
+          alt={config.alt}
           width={logoSize}
           height={logoSize}
           className="rounded-lg"
@@ -75,9 +96,9 @@ export default function Logo({
       {shouldShowText && (
         <div className="flex items-center space-x-1.5">
           <span className={`${textSizeClass} font-bold ${textColorClass}`}>
-            Desk.ai
+            {config.text}
           </span>
-          {variant === 'sidebar' && (
+          {variant === 'sidebar' && activeBrand === 'deskai' && (
             <span className="text-lg">✨</span>
           )}
         </div>

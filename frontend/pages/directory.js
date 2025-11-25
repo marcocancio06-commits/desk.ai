@@ -297,21 +297,33 @@ export default function Directory() {
           </div>
         )}
 
-        {/* Demo Notice */}
-        <div className="mt-12 bg-blue-50 border border-blue-200 rounded-xl p-6 text-center">
-          <div className="inline-flex items-center justify-center w-12 h-12 bg-100 rounded-full mb-3">
-            <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        {/* Marketplace Notice */}
+        <div className="mt-12 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-xl p-8 text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-full mb-4 shadow-lg">
+            <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <h3 className="text-lg font-bold text-gray-900 mb-2">Demo Directory</h3>
-          <p className="text-gray-700 max-w-2xl mx-auto">
-            This is a demonstration of Desk.ai's multi-tenant capabilities. In production, this directory would include 
-            all active businesses using Desk.ai for customer service.
+          <h3 className="text-2xl font-bold text-gray-900 mb-3">Discover Businesses on Growzone Market</h3>
+          <p className="text-gray-700 max-w-2xl mx-auto mb-6">
+            Browse local service businesses using Desk.ai for instant, AI-powered customer responses. 
+            Find providers in your area and connect with them directly.
           </p>
-          <div className="mt-4">
-            <Link href="/" className="text-blue-600 hover:text-blue-700 font-medium">
-              Learn more about Desk.ai →
+          <div className="flex gap-4 justify-center">
+            <Link 
+              href="/marketplace" 
+              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-md hover:shadow-lg font-semibold"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              Browse Marketplace
+            </Link>
+            <Link 
+              href="/" 
+              className="inline-flex items-center px-6 py-3 bg-white text-gray-700 rounded-lg border-2 border-gray-300 hover:border-blue-500 hover:text-blue-600 transition-all font-semibold"
+            >
+              Learn about Desk.ai →
             </Link>
           </div>
         </div>

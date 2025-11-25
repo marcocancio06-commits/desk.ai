@@ -2,27 +2,50 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
-import { signIn, signUp, getSession } from '../lib/supabase';
+import { signIn, signUp, getSession, getUserWithProfile } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import { redirectAfterLogin } from '../lib/redirectAfterLogin';
 
 export default function Login() {
   const router = useRouter();
+  const { currentBusiness } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [role, setRole] = useState('client'); // Default to client for signup
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
   useEffect(() => {
+    // Check URL params for role and signup mode
+    const { role: urlRole, signup } = router.query;
+    if (urlRole && (urlRole === 'owner' || urlRole === 'client')) {
+      setRole(urlRole);
+    }
+    if (signup === 'true') {
+      setIsSignUp(true);
+    }
+    
     // Check if already logged in
     checkSession();
-  }, []);
+  }, [router.query]);
 
   async function checkSession() {
     const session = await getSession();
     if (session) {
-      router.push('/dashboard');
+      // Get user profile to determine role
+      const { user, profile } = await getUserWithProfile();
+      if (user && profile) {
+        redirectAfterLogin({
+          user,
+          profile,
+          currentBusiness,
+          router,
+          context: 'session-check'
+        });
+      }
     }
   }
 
@@ -36,14 +59,25 @@ export default function Login() {
       if (isSignUp) {
         // Sign up
         const { user, session } = await signUp(email, password, {
-          full_name: fullName || email.split('@')[0]
+          full_name: fullName || email.split('@')[0],
+          role: role // Include role in metadata
         });
 
-        if (session) {
+        if (session && user) {
           // Successful signup with immediate login
           setMessage('Account created! Redirecting...');
+          
+          // Get profile to determine redirect
+          const { profile } = await getUserWithProfile();
+          
           setTimeout(() => {
-            router.push('/dashboard');
+            redirectAfterLogin({
+              user,
+              profile: profile || { role }, // Use metadata role if profile not yet created
+              currentBusiness: null, // New user won't have business yet
+              router,
+              context: 'signup'
+            });
           }, 1000);
         } else {
           // Email confirmation required
@@ -51,12 +85,22 @@ export default function Login() {
         }
       } else {
         // Sign in
-        const { session } = await signIn(email, password);
+        const { session, user } = await signIn(email, password);
         
-        if (session) {
+        if (session && user) {
           setMessage('Login successful! Redirecting...');
+          
+          // Get profile to determine redirect
+          const { profile } = await getUserWithProfile();
+          
           setTimeout(() => {
-            router.push('/dashboard');
+            redirectAfterLogin({
+              user,
+              profile,
+              currentBusiness, // Will be null until AuthContext loads it
+              router,
+              context: 'login'
+            });
           }, 500);
         }
       }
@@ -114,19 +158,36 @@ export default function Login() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {isSignUp && (
-                <div>
-                  <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
-                    Full Name
-                  </label>
-                  <input
-                    id="fullName"
-                    type="text"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="John Doe"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
+                <>
+                  <div>
+                    <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
+                      Full Name
+                    </label>
+                    <input
+                      id="fullName"
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="John Doe"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
+                      I want to...
+                    </label>
+                    <select
+                      id="role"
+                      value={role}
+                      onChange={(e) => setRole(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                    >
+                      <option value="client">Use AI chat support (Customer)</option>
+                      <option value="owner">Set up AI for my business (Business Owner)</option>
+                    </select>
+                  </div>
+                </>
               )}
 
               <div>
@@ -204,13 +265,6 @@ export default function Login() {
                 </span>
               </Link>
             </div>
-          </div>
-
-          {/* Demo Note */}
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              New users are automatically connected to the demo business
-            </p>
           </div>
         </div>
       </div>

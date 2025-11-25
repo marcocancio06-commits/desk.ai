@@ -259,3 +259,41 @@ export async function checkUserRole(requiredRole) {
   
   return profile.role === requiredRole;
 }
+
+/**
+ * Check if user owns any businesses
+ * Returns { hasBusiness: boolean, businessCount: number, firstBusinessSlug: string | null }
+ */
+export async function getUserBusinessStatus(userId) {
+  if (!supabase || !userId) {
+    return { hasBusiness: false, businessCount: 0, firstBusinessSlug: null };
+  }
+  
+  try {
+    // Query business_users table joined with businesses
+    const { data, error } = await supabase
+      .from('business_users')
+      .select('business_id, businesses(slug)')
+      .eq('user_id', userId)
+      .eq('role', 'owner'); // Only count owner relationships
+    
+    if (error) {
+      console.error('Error checking user business status:', error);
+      return { hasBusiness: false, businessCount: 0, firstBusinessSlug: null };
+    }
+    
+    const businessCount = data?.length || 0;
+    const firstBusinessSlug = businessCount > 0 && data[0]?.businesses?.slug 
+      ? data[0].businesses.slug 
+      : null;
+    
+    return {
+      hasBusiness: businessCount > 0,
+      businessCount,
+      firstBusinessSlug
+    };
+  } catch (error) {
+    console.error('Error in getUserBusinessStatus:', error);
+    return { hasBusiness: false, businessCount: 0, firstBusinessSlug: null };
+  }
+}

@@ -1,4 +1,4 @@
-# FrontDesk AI - Development Guide
+# Desk.ai - Development Guide
 
 ## Quick Start
 

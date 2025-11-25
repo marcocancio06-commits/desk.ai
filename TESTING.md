@@ -1,7 +1,7 @@
-# FrontDesk AI MVP - Testing Guide
+# Desk.ai MVP - Testing Guide
 
 ## Overview
-This guide shows how to test the complete end-to-end flow of the FrontDesk AI MVP, from customer chat to lead creation to dashboard display.
+This guide shows how to test the complete end-to-end flow of the Desk.ai MVP, from customer chat to lead creation to dashboard display.
 
 ## Prerequisites
 - Backend running on port 3001

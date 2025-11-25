@@ -58,6 +58,27 @@ export default function OwnerChatLayout() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Demo Badge */}
+        <div className="max-w-6xl mx-auto mb-6">
+          <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-lg p-4 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="flex-shrink-0">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-purple-600 text-white uppercase tracking-wide">
+                  Owner Demo
+                </span>
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-purple-900">
+                  This demo shows business owners how Desk.ai extracts structured information from customer conversations
+                </p>
+                <p className="text-xs text-purple-700 mt-1">
+                  Watch the Intelligence Panel on the right update in real-time as the AI qualifies the job, captures details, and determines priority.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Owner-facing header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">

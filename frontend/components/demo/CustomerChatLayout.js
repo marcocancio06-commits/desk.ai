@@ -33,6 +33,27 @@ export default function CustomerChatLayout() {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Demo Badge */}
+        <div className="max-w-3xl mx-auto mb-6">
+          <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-amber-200 rounded-lg p-4 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="flex-shrink-0">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-500 text-white uppercase tracking-wide">
+                  Demo
+                </span>
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-amber-900">
+                  This is a demonstration of Desk.ai's chat support capabilities
+                </p>
+                <p className="text-xs text-amber-700 mt-1">
+                  Try asking about plumbing services, pricing, or scheduling. The AI is trained on Houston Premier Plumbing's business.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Customer-facing header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">

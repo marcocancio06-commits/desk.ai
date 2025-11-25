@@ -246,9 +246,9 @@ function extractDataFromMessage(message, msgLower, previousData = {}) {
 }
 
 // ============================================================================
-// IMPROVED SYSTEM PROMPT - State-aware with memory
+// IMPROVED SYSTEM PROMPT - State-aware with memory + per-business training
 // ============================================================================
-function buildSystemPrompt(businessInfo, industryPreset, conversationState, memory) {
+function buildSystemPrompt(businessInfo, industryPreset, conversationState, memory, trainingContext = '') {
   const alreadyKnown = [];
   if (memory.issue_summary) alreadyKnown.push(`issue: "${memory.issue_summary}"`);
   if (memory.zip_code) alreadyKnown.push(`ZIP: ${memory.zip_code}`);
@@ -266,7 +266,7 @@ function buildSystemPrompt(businessInfo, industryPreset, conversationState, memo
     [CONVERSATION_STATES.READY_TO_SCHEDULE]: 'All info collected. Confirm and set booking_intent="ready_to_book".'
   };
 
-  return `You are Desk.ai, the AI front desk for ${businessInfo.business_name} (${businessInfo.services.join(', ')}).
+  return `You are Desk.ai, the AI front desk for ${businessInfo.business_name} (${businessInfo.services.join(', ')}).${trainingContext}
 
 Your job is to carry a short, friendly conversation and collect exactly four fields:
 
@@ -495,9 +495,79 @@ async function callAnthropicAPI({ apiKey, model, systemPrompt, userPrompt }) {
 
 // ============================================================================
 // MAIN HANDLER - Now with state machine, memory, and confidence scoring
+// ENHANCED: Multi-tenant with per-business training context
 // ============================================================================
+
+/**
+ * Get business-specific training context for AI prompt
+ * This is where we inject per-business knowledge, FAQ, scripts, etc.
+ * 
+ * TODO: Future enhancements:
+ * - Query business_knowledge table for FAQ entries
+ * - Fetch custom service scripts from business_settings
+ * - Include business-specific policies and procedures
+ * - Load brand voice guidelines
+ * - Pull recent customer feedback/common questions
+ * 
+ * @param {Object} businessConfig - Business configuration from getBusinessConfig()
+ * @returns {string} Training context to inject into AI prompt
+ */
+function getBusinessTrainingContext(businessConfig) {
+  const contextParts = [];
+  
+  // ===== 1. SERVICE AREA SPECIFICS =====
+  if (businessConfig.serviceAreas && businessConfig.serviceAreas.length > 0) {
+    contextParts.push(`SERVICE AREA: We serve ZIP codes ${businessConfig.serviceAreas.join(', ')}. Only accept bookings from these areas.`);
+  }
+  
+  // ===== 2. INDUSTRY-SPECIFIC KNOWLEDGE =====
+  if (businessConfig.industry) {
+    contextParts.push(`INDUSTRY: ${businessConfig.industry} services`);
+  }
+  
+  // ===== 3. CUSTOM GREETING (if set) =====
+  if (businessConfig.custom_greeting) {
+    contextParts.push(`CUSTOM GREETING: ${businessConfig.custom_greeting}`);
+  }
+  
+  // ===== 4. FAQ INJECTION (future feature) =====
+  // TODO: Implement FAQ system
+  // if (businessConfig.faq_enabled) {
+  //   const faqEntries = await fetchBusinessFAQ(businessConfig.business_id);
+  //   if (faqEntries.length > 0) {
+  //     contextParts.push(`FREQUENTLY ASKED QUESTIONS:\n${faqEntries.map(faq => `Q: ${faq.question}\nA: ${faq.answer}`).join('\n\n')}`);
+  //   }
+  // }
+  
+  // ===== 5. SERVICE SCRIPTS (future feature) =====
+  // TODO: Implement service-specific response templates
+  // if (businessConfig._settings?.service_scripts) {
+  //   contextParts.push(`SERVICE SCRIPTS:\n${JSON.stringify(businessConfig._settings.service_scripts, null, 2)}`);
+  // }
+  
+  // ===== 6. BRAND VOICE GUIDELINES (future feature) =====
+  // TODO: Implement tone/style customization
+  // if (businessConfig._settings?.brand_voice) {
+  //   contextParts.push(`BRAND VOICE: ${businessConfig._settings.brand_voice} (e.g., "professional and friendly" or "casual and fun")`);
+  // }
+  
+  // ===== 7. ESCALATION RULES (future feature) =====
+  // TODO: Define when to transfer to human
+  // if (businessConfig._settings?.escalation_rules) {
+  //   contextParts.push(`ESCALATION: ${businessConfig._settings.escalation_rules}`);
+  // }
+  
+  // If no custom context, return empty string
+  if (contextParts.length === 0) {
+    return '';
+  }
+  
+  return `\n\n===== BUSINESS-SPECIFIC TRAINING =====\n${contextParts.join('\n\n')}\n===== END TRAINING =====\n`;
+}
+
 async function handleCustomerMessage({ businessId, from, channel, message, conversationState = null }) {
-  const config = getBusinessConfig(businessId);
+  // ===== STEP 1: Load business config from database =====
+  const config = await getBusinessConfig(businessId);
   const apiKey = process.env.ANTHROPIC_API_KEY;
   
   // Initialize memory from conversation state
@@ -536,6 +606,9 @@ async function handleCustomerMessage({ businessId, from, channel, message, conve
   // Get industry preset
   const industryPreset = getIndustryPreset(config.services);
   
+  // ===== STEP 2: Get business-specific training context =====
+  const trainingContext = getBusinessTrainingContext(config);
+  
   // Determine which model to use (default: Haiku for cost efficiency)
   const preferredModel = process.env.AI_MODEL === 'sonnet' 
     ? 'claude-3-5-sonnet-20241022'
@@ -549,8 +622,8 @@ async function handleCustomerMessage({ businessId, from, channel, message, conve
     return getFallbackResponse(message, updatedMemory);
   }
   
-  // Build prompts with state and memory awareness
-  const systemPrompt = buildSystemPrompt(config, industryPreset, state, updatedMemory);
+  // Build prompts with state and memory awareness + training context
+  const systemPrompt = buildSystemPrompt(config, industryPreset, state, updatedMemory, trainingContext);
   const userPrompt = buildUserPrompt({ 
     config, 
     channel, 
@@ -566,7 +639,11 @@ async function handleCustomerMessage({ businessId, from, channel, message, conve
   
   try {
     // ===== ATTEMPT 1: Use preferred model (usually Haiku) with retry =====
-    logger.info(`Calling AI (${preferredModel})`, { state, businessId });
+    logger.info(`Calling AI (${preferredModel})`, { 
+      state, 
+      businessId: config.business_id,
+      industry: config.industry 
+    });
     
     const textContent = await retryAIOperation(async () => {
       return await callAnthropicAPI({
@@ -599,7 +676,11 @@ async function handleCustomerMessage({ businessId, from, channel, message, conve
     }
     
     // Success! Return the response
-    logger.info(`AI call succeeded`, { model: preferredModel });
+    logger.info(`AI call succeeded`, { 
+      model: preferredModel,
+      businessId: config.business_id,
+      bookingIntent: parsedResponse.booking_intent 
+    });
     return parsedResponse;
     
   } catch (firstAttemptError) {

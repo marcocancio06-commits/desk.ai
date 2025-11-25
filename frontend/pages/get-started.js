@@ -69,13 +69,13 @@ export default function GetStarted() {
             {/* CTAs */}
             <div className="space-y-3">
               <Link
-                href="/auth/signup?role=owner"
+                href="/login?role=owner&signup=true"
                 className="block w-full text-center px-6 py-3.5 text-base font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl"
               >
                 Create business account
               </Link>
               <Link
-                href="/auth/login?role=owner"
+                href="/login?role=owner"
                 className="block w-full text-center px-6 py-3.5 text-base font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-all"
               >
                 Sign in
@@ -124,7 +124,7 @@ export default function GetStarted() {
             {/* CTAs */}
             <div className="space-y-3">
               <Link
-                href="/auth/login?role=client"
+                href="/login?role=client"
                 className="block w-full text-center px-6 py-3.5 text-base font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-all shadow-lg hover:shadow-xl"
               >
                 Sign in to chat & marketplace

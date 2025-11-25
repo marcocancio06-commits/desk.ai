@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Script to populate FrontDesk AI with 10 demo leads
+# Script to populate Desk.ai with 10 demo leads
 # Run this after starting the backend server
 
 BACKEND_URL="http://localhost:3001"
 
-echo "🔧 Populating FrontDesk AI with demo leads..."
+echo "🔧 Populating Desk.ai with demo leads..."
 echo ""
 
 # Check if backend is running

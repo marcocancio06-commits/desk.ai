@@ -176,6 +176,7 @@ export function AuthProvider({ children }) {
     session,
     businesses,
     currentBusiness,
+    userRole: currentBusiness?.role || null,
     loading,
     businessLoading,
     switchBusiness,
@@ -189,7 +190,7 @@ export function AuthProvider({ children }) {
       setCurrentBusiness(null);
       setBusinessLoading(false);
       localStorage.removeItem('currentBusinessId');
-      router.push('/auth/login');
+      router.push('/login');
     }
   };
 
@@ -210,7 +211,7 @@ export function useAuth() {
 
 /**
  * Higher-order component to protect routes
- * Redirects to /auth/login if not authenticated
+ * Redirects to /login if not authenticated
  */
 export function withAuth(Component) {
   return function ProtectedRoute(props) {
@@ -220,7 +221,7 @@ export function withAuth(Component) {
     useEffect(() => {
       if (!loading && !user) {
         // Not logged in, redirect to login
-        router.push('/auth/login');
+        router.push('/login');
       }
     }, [user, loading, router]);
 

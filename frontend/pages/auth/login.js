@@ -5,7 +5,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Logo from '../../components/Logo';
-import { signIn, getUserProfile } from '../../lib/supabase';
+import { signIn, getUserProfile, getUserBusinessStatus } from '../../lib/supabase';
+import { MARKETPLACE_ENABLED } from '../../lib/featureFlags';
 
 export default function Login() {
   const router = useRouter();
@@ -14,6 +15,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [checkingBusiness, setCheckingBusiness] = useState(false);
   const [error, setError] = useState(null);
   const [expectedRole, setExpectedRole] = useState(null);
 
@@ -50,8 +52,8 @@ export default function Login() {
       const profile = await getUserProfile(user.id);
       
       if (!profile) {
-        console.warn('No profile found for user, defaulting to client role');
-        router.push('/client');
+        console.warn('No profile found for user, redirecting to home');
+        router.push('/');
         return;
       }
       
@@ -59,15 +61,29 @@ export default function Login() {
       
       // Redirect based on role
       if (profile.role === 'owner') {
-        console.log('Redirecting owner to dashboard...');
-        router.push('/dashboard');
-      } else if (profile.role === 'client') {
-        console.log('Redirecting client to client home...');
-        router.push('/client');
+        console.log('Owner logged in, checking business status...');
+        setCheckingBusiness(true);
+        
+        // Check if owner has any businesses
+        const businessStatus = await getUserBusinessStatus(user.id);
+        console.log('Business status:', businessStatus);
+        
+        if (businessStatus.hasBusiness) {
+          console.log('Owner has business, redirecting to dashboard...');
+          router.push('/dashboard');
+        } else {
+          console.log('Owner has no business yet, redirecting to onboarding...');
+          router.push('/onboarding');
+        }
       } else {
-        // Unknown role, default to client
-        console.warn('Unknown role, defaulting to client');
-        router.push('/client');
+        // Clients/customers go to marketplace (if enabled) or client page
+        if (MARKETPLACE_ENABLED) {
+          console.log('Customer logged in, redirecting to marketplace...');
+          router.push('/marketplace');
+        } else {
+          console.log('Customer logged in, redirecting to client page...');
+          router.push('/client');
+        }
       }
       
     } catch (err) {
@@ -183,16 +199,16 @@ export default function Login() {
             <div>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || checkingBusiness}
                 className="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? (
+                {loading || checkingBusiness ? (
                   <span className="flex items-center justify-center">
                     <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Signing in...
+                    {checkingBusiness ? 'Loading your account...' : 'Signing in...'}
                   </span>
                 ) : (
                   'Sign in'
@@ -200,20 +216,6 @@ export default function Login() {
               </button>
             </div>
           </form>
-
-          {/* Demo credentials */}
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-xs text-gray-500 text-center mb-3">
-              Demo authentication powered by Supabase
-            </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-xs font-medium text-blue-900 mb-2">Test Credentials:</p>
-              <div className="text-xs text-blue-700 space-y-1">
-                <p><span className="font-medium">Email:</span> demo@example.com</p>
-                <p><span className="font-medium">Password:</span> demo123</p>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>

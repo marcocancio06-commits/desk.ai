@@ -7,6 +7,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Logo from '../../components/Logo';
 import { supabase, signUp, upsertProfile } from '../../lib/supabase';
+import { MARKETPLACE_ENABLED } from '../../lib/featureFlags';
 
 export default function Signup() {
   const router = useRouter();
@@ -45,25 +46,36 @@ export default function Signup() {
       // Validation
       if (!email || !password) {
         setError('Email and password are required');
+        setLoading(false);
         return;
       }
       
       if (password.length < 6) {
         setError('Password must be at least 6 characters');
+        setLoading(false);
         return;
       }
       
       if (password !== confirmPassword) {
         setError('Passwords do not match');
+        setLoading(false);
         return;
       }
       
       // Create Supabase Auth user
-      console.log('Creating auth user...');
-      const authData = await signUp(email, password);
+      console.log('Creating auth user with role:', userRole);
+      const authData = await signUp(email, password, {
+        role: userRole // Pass role as metadata
+      });
+      
+      console.log('SignUp response:', { 
+        hasUser: !!authData?.user, 
+        hasSession: !!authData?.session,
+        emailConfirmationRequired: authData?.emailConfirmationRequired 
+      });
       
       // Check if email confirmation is required
-      if (authData.emailConfirmationRequired) {
+      if (authData && authData.emailConfirmationRequired) {
         console.log('Email confirmation required');
         setEmailConfirmationRequired(true);
         setLoading(false);
@@ -71,8 +83,9 @@ export default function Signup() {
       }
       
       // User created successfully, check if we have a user object
-      if (!authData.user) {
-        throw new Error('Failed to create user');
+      if (!authData || !authData.user) {
+        console.error('Invalid signup response:', authData);
+        throw new Error('Failed to create user - invalid response from server');
       }
       
       const userId = authData.user.id;
@@ -88,13 +101,23 @@ export default function Signup() {
       console.log('✅ Profile created with role:', userRole);
       
       // Success! Redirect based on role
+      // Note: We intentionally keep loading=true during redirect for UX
       if (userRole === 'owner') {
         console.log('Redirecting owner to onboarding...');
-        router.push('/onboarding');
+        await router.push('/onboarding');
       } else {
-        console.log('Redirecting client to client home...');
-        router.push('/client');
+        // Customers go to marketplace (if enabled) or client page
+        if (MARKETPLACE_ENABLED) {
+          console.log('Redirecting customer to marketplace...');
+          await router.push('/marketplace');
+        } else {
+          console.log('Redirecting customer to client page...');
+          await router.push('/client');
+        }
       }
+      
+      // If redirect somehow doesn't complete, ensure loading is reset
+      setLoading(false);
       
     } catch (err) {
       console.error('Signup error:', err);
@@ -186,7 +209,7 @@ export default function Signup() {
           Create Your {userRole === 'owner' ? 'Business Owner' : 'Customer'} Account
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          {userRole === 'owner' ? 'Set up your AI front desk' : 'Access chat and marketplace'} • Already have an account?{' '}
+          {userRole === 'owner' ? 'Set up your AI front desk in minutes' : 'Access chat and marketplace'} • Already have an account?{' '}
           <Link href={`/auth/login${roleParam ? `?role=${roleParam}` : ''}`} className="font-medium text-blue-600 hover:text-blue-500">
             Sign in
           </Link>
@@ -269,7 +292,7 @@ export default function Signup() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl"
               >
                 {loading ? (
                   <span className="flex items-center">
@@ -280,7 +303,12 @@ export default function Signup() {
                     Creating Account...
                   </span>
                 ) : (
-                  'Create Account & Continue'
+                  <>
+                    Create Account
+                    <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                  </>
                 )}
               </button>
             </div>

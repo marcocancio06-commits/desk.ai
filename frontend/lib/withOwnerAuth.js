@@ -21,7 +21,7 @@ export function withOwnerAuth(Component) {
       // Not logged in at all - redirect to login
       if (!user) {
         console.log('No user, redirecting to login');
-        router.push('/auth/login?role=owner');
+        router.push('/login?role=owner');
         return;
       }
 

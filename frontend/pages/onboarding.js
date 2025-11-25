@@ -8,8 +8,9 @@ import Step1BusinessDetails from '../components/onboarding/Step1BusinessDetails'
 import Step2ServiceArea from '../components/onboarding/Step2ServiceArea';
 import Step3Branding from '../components/onboarding/Step3Branding';
 import Step4Confirm from '../components/onboarding/Step4Confirm';
+import Step5Complete from '../components/onboarding/Step5Complete';
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5;
 const STORAGE_KEY = 'desk_ai_onboarding_data';
 
 function OnboardingWizard() {
@@ -19,6 +20,7 @@ function OnboardingWizard() {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const [createdBusinessSlug, setCreatedBusinessSlug] = useState(null);
   
   // Wizard data state
   const [wizardData, setWizardData] = useState({
@@ -32,7 +34,10 @@ function OnboardingWizard() {
     // Step 2: Service Area
     zipCodes: [],
     
-    // Step 3: Branding
+    // Step 3: Marketplace & Branding
+    isPublic: false, // Default to private
+    tagline: '',
+    shortDescription: '',
     logoPath: null,
     colorScheme: 'default', // default, blue, green, purple
     
@@ -121,6 +126,9 @@ function OnboardingWizard() {
           phone: wizardData.phone,
           email: wizardData.email,
           zipCodes: wizardData.zipCodes,
+          isPublic: wizardData.isPublic,
+          tagline: wizardData.tagline,
+          shortDescription: wizardData.shortDescription,
           logoPath: wizardData.logoPath,
           colorScheme: wizardData.colorScheme
         })
@@ -128,7 +136,26 @@ function OnboardingWizard() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create business');
+        
+        // Provide user-friendly error messages
+        let userMessage = errorData.error || 'Failed to create business';
+        
+        if (errorData.code === 'BUSINESS_LIMIT_REACHED') {
+          userMessage = 'You already have a business setup. Redirecting to dashboard...';
+          setTimeout(() => {
+            router.push('/dashboard');
+          }, 2000);
+        } else if (errorData.code === 'INVALID_BUSINESS_NAME') {
+          userMessage = 'Please provide a valid business name (minimum 2 characters)';
+        } else if (errorData.code === 'INVALID_INDUSTRY') {
+          userMessage = 'Please select an industry for your business';
+        } else if (errorData.code === 'INVALID_ZIP_CODES') {
+          userMessage = 'Please add at least one service area (ZIP code)';
+        } else if (errorData.code === 'SLUG_GENERATION_FAILED') {
+          userMessage = 'Unable to create a unique URL for your business. Please try a different name.';
+        }
+        
+        throw new Error(userMessage);
       }
 
       const data = await response.json();
@@ -136,13 +163,15 @@ function OnboardingWizard() {
       // Clear localStorage
       localStorage.removeItem(STORAGE_KEY);
       
+      // Store business slug for step 5
+      setCreatedBusinessSlug(data.business?.slug || null);
+      
       // Mark as completed
       setWizardData(prev => ({ ...prev, completed: true }));
       
-      // Reload auth context to fetch the new business
-      if (window.location) {
-        window.location.href = '/dashboard';
-      }
+      // Move to step 5 (success screen)
+      setCurrentStep(5);
+      setIsSubmitting(false);
 
     } catch (err) {
       console.error('Error creating business:', err);
@@ -195,7 +224,7 @@ function OnboardingWizard() {
 
         {/* Step Indicators */}
         <div className="flex items-center justify-between mb-8">
-          {[1, 2, 3, 4].map((step) => (
+          {[1, 2, 3, 4, 5].map((step) => (
             <div key={step} className="flex items-center">
               <div className={`
                 w-10 h-10 rounded-full flex items-center justify-center font-semibold
@@ -211,14 +240,15 @@ function OnboardingWizard() {
               </div>
               <div className="ml-3 hidden sm:block">
                 <div className={`text-sm font-medium ${currentStep >= step ? 'text-gray-900' : 'text-gray-500'}`}>
-                  {step === 1 && 'Business Details'}
+                  {step === 1 && 'Business'}
                   {step === 2 && 'Service Area'}
                   {step === 3 && 'Branding'}
                   {step === 4 && 'Confirm'}
+                  {step === 5 && 'Complete'}
                 </div>
               </div>
-              {step < 4 && (
-                <div className="hidden md:block w-16 lg:w-24 h-0.5 bg-gray-300 mx-4" />
+              {step < 5 && (
+                <div className="hidden md:block w-12 lg:w-16 h-0.5 bg-gray-300 mx-4" />
               )}
             </div>
           ))}
@@ -270,6 +300,13 @@ function OnboardingWizard() {
               onBack={handleBack}
               onFinish={handleFinish}
               isSubmitting={isSubmitting}
+            />
+          )}
+          
+          {currentStep === 5 && (
+            <Step5Complete
+              businessSlug={createdBusinessSlug}
+              businessName={wizardData.businessName}
             />
           )}
         </div>

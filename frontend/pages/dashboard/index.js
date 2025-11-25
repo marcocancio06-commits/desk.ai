@@ -152,8 +152,38 @@ function Dashboard() {
       {/* Enhanced Gradient Header */}
       <div className="bg-gradient-to-br from-blue-50/80 via-indigo-50/40 to-transparent -m-8 p-8 mb-8">
         <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex items-start justify-between flex-wrap gap-4">
+            <div className="flex-1 min-w-0">
+              {/* Business Name */}
+              {currentBusiness && (
+                <div className="mb-3">
+                  <h2 className="text-2xl font-bold text-slate-900 mb-2 flex items-center flex-wrap gap-3">
+                    {currentBusiness.name}
+                    {MARKETPLACE_ENABLED && currentBusiness.is_public && (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-md">
+                        <svg className="w-3.5 h-3.5 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        Live on Growzone Market
+                      </span>
+                    )}
+                  </h2>
+                  {currentBusiness.slug && (
+                    <a
+                      href={`/b/${currentBusiness.slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                    >
+                      <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                      View Public Page
+                    </a>
+                  )}
+                </div>
+              )}
+              
               <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent mb-2">
                 Dashboard
               </h1>
@@ -273,27 +303,32 @@ function Dashboard() {
             <div className="text-center max-w-md mx-auto">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white shadow-lg mb-4">
                 <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">No activity yet</h3>
-              <p className="text-sm text-slate-600 mb-4">
-                Get started by trying the demo chat to see how Desk.ai handles customer conversations
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">No leads yet</h3>
+              <p className="text-sm text-slate-600 mb-6">
+                When customers start chatting with your business, they'll appear here. Share your public page to start getting inquiries!
               </p>
-              <div className="inline-flex items-center space-x-2 text-xs text-slate-500 mb-6">
-                <span className="inline-flex items-center px-3 py-1 rounded-full bg-white border border-slate-200">
-                  <svg className="w-3.5 h-3.5 mr-1.5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                  </svg>
-                  Demo: 3 conversations yesterday
-                </span>
-              </div>
-              <div>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                {currentBusiness?.slug && (
+                  <a
+                    href={`/b/${currentBusiness.slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl text-sm font-semibold"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    View Public Page
+                  </a>
+                )}
                 <a
                   href="/demo-chat"
-                  className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
+                  className="inline-flex items-center px-6 py-3 bg-white text-gray-700 rounded-lg border-2 border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-all shadow-md text-sm font-semibold"
                 >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
                   Try Demo Chat

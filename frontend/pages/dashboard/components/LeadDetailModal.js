@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Phone, MapPin, Clock, Tag, AlertCircle, Calendar, MessageSquare, Edit2, Save, Plus } from 'lucide-react';
+import LeadConversationViewer from './LeadConversationViewer';
 
 const AVAILABLE_TAGS = [
   'emergency',
@@ -413,40 +414,8 @@ export default function LeadDetailModal({ leadId, isOpen, onClose, onUpdate }) {
 
               {/* Timeline */}
               <div>
-                <h3 className="font-semibold text-gray-900 mb-3">Timeline</h3>
-                <div className="space-y-3">
-                  {timeline.length === 0 ? (
-                    <p className="text-gray-500 text-sm">No activity yet</p>
-                  ) : (
-                    timeline.map((item, index) => (
-                      <div key={index} className="flex gap-3 pb-3 border-b border-gray-100 last:border-0">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
-                          {item.type === 'event' ? getEventIcon(item.event_type) : <MessageSquare className="w-4 h-4" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="text-sm font-medium text-gray-900">
-                              {item.type === 'event' ? (
-                                item.description || item.event_type
-                              ) : (
-                                <span>
-                                  <span className="font-semibold">{item.sender === 'customer' ? 'Customer' : 'AI'}:</span>
-                                  {' '}{item.text.substring(0, 100)}{item.text.length > 100 ? '...' : ''}
-                                </span>
-                              )}
-                            </p>
-                            <span className="text-xs text-gray-500 whitespace-nowrap">
-                              {formatTimestamp(item.created_at)}
-                            </span>
-                          </div>
-                          {item.type === 'event' && item.created_by && (
-                            <span className="text-xs text-gray-500">by {item.created_by}</span>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
+                <h3 className="font-semibold text-gray-900 mb-3">Conversation & Timeline</h3>
+                <LeadConversationViewer leadId={leadId} />
               </div>
             </div>
           </div>

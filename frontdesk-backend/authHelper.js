@@ -62,7 +62,7 @@ async function getOrCreateProfile(userId, authUser = null) {
       id: userId,
       full_name: authUser?.user_metadata?.full_name || authUser?.email?.split('@')[0] || 'User',
       email: authUser?.email,
-      role: 'user'
+      role: authUser?.user_metadata?.role || 'client' // Use role from signup metadata
     })
     .select()
     .single();
@@ -72,8 +72,11 @@ async function getOrCreateProfile(userId, authUser = null) {
     throw createError;
   }
 
-  // Auto-assign to demo business for now (will be replaced with onboarding)
-  await assignUserToDemoBusiness(userId);
+  // Only auto-assign to demo business if role is 'client' (not owner)
+  if (newProfile.role === 'client') {
+    await assignUserToDemoBusiness(userId);
+  }
+  // Owners will create their business during onboarding
 
   return newProfile;
 }

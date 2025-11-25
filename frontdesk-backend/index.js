@@ -1719,8 +1719,10 @@ app.get('/api/business/:slug', async (req, res) => {
         phone: business.phone,
         email: business.email,
         industry: business.industry,
+        tagline: business.tagline,
+        short_description: business.short_description,
+        is_public: business.is_public,
         logo_url: business.logo_url,
-        color_scheme: business.color_scheme || 'default',
         zip_codes: business.zip_codes || business.service_zip_codes || [],
         serviceZipCodes: business.zip_codes || business.service_zip_codes || [], // Backward compatibility
         services: business.services || [],
@@ -1802,6 +1804,93 @@ app.get('/api/businesses', async (req, res) => {
   }
 });
 
+// GET /api/marketplace - Get all listed businesses for marketplace (public, no auth required)
+// FEATURE FLAG: Controlled by MARKETPLACE_ENABLED in lib/featureFlags.js
+app.get('/api/marketplace', async (req, res) => {
+  try {
+    const { MARKETPLACE_ENABLED } = require('./lib/featureFlags');
+    
+    // FEATURE FLAG: Return empty array if marketplace is disabled
+    if (!MARKETPLACE_ENABLED) {
+      logger.info('Marketplace disabled via feature flag');
+      return res.json({
+        ok: true,
+        businesses: [],
+        message: 'Marketplace feature is currently disabled'
+      });
+    }
+    
+    logger.info('Fetching marketplace businesses');
+    
+    if (!supabase) {
+      return res.status(500).json({
+        ok: false,
+        error: 'Database not configured'
+      });
+    }
+    
+    // Use service role client to bypass RLS for public marketplace query
+    const { createClient } = require('@supabase/supabase-js');
+    const supabaseServiceRole = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+    
+    // Query all active AND public businesses
+    const { data: businesses, error } = await supabaseServiceRole
+      .from('businesses')
+      .select('*')
+      .eq('is_active', true)
+      .eq('is_public', true)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      logger.error('Error fetching marketplace businesses', { 
+        error: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      });
+      return res.status(500).json({
+        ok: false,
+        error: 'Failed to fetch marketplace businesses',
+        debug: {
+          message: error.message,
+          code: error.code,
+          hint: error.hint
+        }
+      });
+    }
+    
+    // Return public business info for marketplace
+    const marketplaceBusinesses = (businesses || []).map(business => ({
+      id: business.id,
+      slug: business.slug,
+      name: business.name,
+      industry: business.industry,
+      tagline: business.tagline,
+      short_description: business.short_description,
+      service_zip_codes: business.service_zip_codes || [],
+      logo_url: business.logo_url
+    }));
+    
+    logger.info('Marketplace businesses fetched', { count: marketplaceBusinesses.length });
+    
+    res.json({
+      ok: true,
+      businesses: marketplaceBusinesses,
+      count: marketplaceBusinesses.length
+    });
+  } catch (error) {
+    logger.error('Error fetching marketplace businesses', { error: error.message });
+    res.status(500).json({
+      ok: false,
+      error: 'Failed to fetch marketplace businesses',
+      details: error.message
+    });
+  }
+});
+
 // GET /api/auth/businesses - Get all businesses for current user
 app.get('/api/auth/businesses', requireAuth, async (req, res) => {
   const { userId } = req.authContext;
@@ -1829,6 +1918,7 @@ app.get('/api/business/:businessId/team', requireAuth, requireBusinessOwnership,
   const { verifiedBusinessId } = req.authContext;
   
   try {
+    // Get active team members
     const { data, error } = await supabase
       .from('business_users')
       .select(`
@@ -1838,31 +1928,52 @@ app.get('/api/business/:businessId/team', requireAuth, requireBusinessOwnership,
         created_at,
         profiles:user_id (
           full_name,
-          phone
+          email
         )
       `)
       .eq('business_id', verifiedBusinessId);
     
     if (error) throw error;
     
-    // Get user emails from auth.users
+    // Get user emails from auth.users (profiles.email may not be populated)
     const teamWithEmails = [];
     for (const member of data || []) {
       const { data: authUser } = await supabase.auth.admin.getUserById(member.user_id);
       teamWithEmails.push({
         user_id: member.user_id,
-        email: authUser?.user?.email || 'Unknown',
+        email: authUser?.user?.email || member.profiles?.email || 'Unknown',
         role: member.role,
         is_default: member.is_default,
         full_name: member.profiles?.full_name,
-        phone: member.profiles?.phone,
-        created_at: member.created_at
+        created_at: member.created_at,
+        status: 'active'
       });
     }
     
+    // Get pending invites
+    const { data: invites, error: inviteError } = await supabase
+      .from('team_invites')
+      .select('*')
+      .eq('business_id', verifiedBusinessId)
+      .gte('expires_at', new Date().toISOString()); // Only non-expired
+    
+    if (inviteError) throw inviteError;
+    
+    const pendingInvites = (invites || []).map(invite => ({
+      id: invite.id,
+      email: invite.email,
+      role: invite.role,
+      created_at: invite.created_at,
+      expires_at: invite.expires_at,
+      status: 'pending'
+    }));
+    
     res.status(200).json({
       ok: true,
-      data: teamWithEmails
+      team: teamWithEmails,
+      pending: pendingInvites,
+      count: teamWithEmails.length,
+      pendingCount: pendingInvites.length
     });
   } catch (error) {
     console.error('Error fetching team members:', error);
@@ -1876,7 +1987,7 @@ app.get('/api/business/:businessId/team', requireAuth, requireBusinessOwnership,
 
 // POST /api/business/:businessId/invite - Invite a team member (Protected)
 app.post('/api/business/:businessId/invite', requireAuth, requireBusinessOwnership, async (req, res) => {
-  const { verifiedBusinessId, businessRole } = req.authContext;
+  const { verifiedBusinessId, businessRole, userId: inviterId } = req.authContext;
   const { email, role } = req.body;
   
   if (!email || !role) {
@@ -1886,18 +1997,18 @@ app.post('/api/business/:businessId/invite', requireAuth, requireBusinessOwnersh
     });
   }
   
-  if (!['staff', 'manager'].includes(role)) {
+  if (!['staff', 'owner'].includes(role)) {
     return res.status(400).json({
       ok: false,
-      error: 'Role must be staff or manager'
+      error: 'Role must be staff or owner'
     });
   }
   
-  // SECURITY: Only owners and managers can invite team members
-  if (businessRole !== 'owner' && businessRole !== 'manager') {
+  // SECURITY: Only owners can invite team members
+  if (businessRole !== 'owner') {
     return res.status(403).json({
       ok: false,
-      error: 'Only owners and managers can invite team members',
+      error: 'Only owners can invite team members',
       code: 'INSUFFICIENT_PERMISSIONS'
     });
   }
@@ -1907,11 +2018,9 @@ app.post('/api/business/:businessId/invite', requireAuth, requireBusinessOwnersh
     const { data: existingUsers } = await supabase.auth.admin.listUsers();
     const existingUser = existingUsers?.users?.find(u => u.email === email);
     
-    let userId;
-    
     if (existingUser) {
-      // User already exists
-      userId = existingUser.id;
+      // User already exists - add them directly to business_users
+      const userId = existingUser.id;
       
       // Check if already linked to this business
       const { data: existing } = await supabase
@@ -1927,55 +2036,173 @@ app.post('/api/business/:businessId/invite', requireAuth, requireBusinessOwnersh
           error: 'User is already a team member of this business'
         });
       }
-    } else {
-      // Create new user with random password (they'll need to reset)
-      const randomPassword = Math.random().toString(36).slice(-8) + 'Aa1!';
-      const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+      
+      // Link user to business
+      const { error: linkError } = await supabase
+        .from('business_users')
+        .insert({
+          user_id: userId,
+          business_id: verifiedBusinessId,
+          role: role,
+          is_default: false
+        });
+      
+      if (linkError) throw linkError;
+      
+      logger.info(`Existing user added to team`, {
+        businessId: verifiedBusinessId,
         email,
-        password: randomPassword,
-        email_confirm: true
+        role,
+        userId,
+        invitedBy: inviterId
       });
       
-      if (createError) throw createError;
-      userId = newUser.user.id;
+      return res.status(200).json({
+        ok: true,
+        message: 'Team member added successfully',
+        type: 'direct_add',
+        userId
+      });
+    } else {
+      // User doesn't exist - create a placeholder invite
+      // Check if invite already exists
+      const { data: existingInvite } = await supabase
+        .from('team_invites')
+        .select('*')
+        .eq('business_id', verifiedBusinessId)
+        .eq('email', email)
+        .single();
       
-      // Create profile
-      await supabase.from('profiles').insert({
-        id: userId,
-        full_name: email.split('@')[0] // Default name from email
+      if (existingInvite) {
+        return res.status(400).json({
+          ok: false,
+          error: 'An invitation has already been sent to this email'
+        });
+      }
+      
+      // Create invite
+      const { error: inviteError } = await supabase
+        .from('team_invites')
+        .insert({
+          business_id: verifiedBusinessId,
+          email,
+          role,
+          invited_by: inviterId
+        });
+      
+      if (inviteError) throw inviteError;
+      
+      logger.info(`Team invite created (placeholder)`, {
+        businessId: verifiedBusinessId,
+        email,
+        role,
+        invitedBy: inviterId
+      });
+      
+      return res.status(200).json({
+        ok: true,
+        message: 'Invitation created. User will need to sign up first.',
+        type: 'pending_invite'
       });
     }
-    
-    // Link user to business
-    const { error: linkError } = await supabase
-      .from('business_users')
-      .insert({
-        user_id: userId,
-        business_id: verifiedBusinessId,
-        role: role,
-        is_default: false
-      });
-    
-    if (linkError) throw linkError;
-    
-    logger.info(`Team member invited`, {
-      businessId: verifiedBusinessId,
-      email,
-      role,
-      userId,
-      invitedBy: req.authContext.userId
-    });
-    
-    res.status(200).json({
-      ok: true,
-      message: 'Team member invited successfully',
-      userId
-    });
   } catch (error) {
     console.error('Error inviting team member:', error);
     res.status(500).json({
       ok: false,
       error: 'Failed to invite team member',
+      details: error.message
+    });
+  }
+});
+
+// DELETE /api/business/:businessId/team/:userId - Remove team member (Protected)
+app.delete('/api/business/:businessId/team/:userId', requireAuth, requireBusinessOwnership, async (req, res) => {
+  const { verifiedBusinessId, businessRole, userId: requesterId } = req.authContext;
+  const { userId: targetUserId } = req.params;
+  
+  // SECURITY: Only owners can remove team members
+  if (businessRole !== 'owner') {
+    return res.status(403).json({
+      ok: false,
+      error: 'Only owners can remove team members',
+      code: 'INSUFFICIENT_PERMISSIONS'
+    });
+  }
+  
+  // Prevent removing yourself
+  if (targetUserId === requesterId) {
+    return res.status(400).json({
+      ok: false,
+      error: 'You cannot remove yourself from the team'
+    });
+  }
+  
+  try {
+    const { error } = await supabase
+      .from('business_users')
+      .delete()
+      .eq('business_id', verifiedBusinessId)
+      .eq('user_id', targetUserId);
+    
+    if (error) throw error;
+    
+    logger.info(`Team member removed`, {
+      businessId: verifiedBusinessId,
+      removedUserId: targetUserId,
+      removedBy: requesterId
+    });
+    
+    res.status(200).json({
+      ok: true,
+      message: 'Team member removed successfully'
+    });
+  } catch (error) {
+    console.error('Error removing team member:', error);
+    res.status(500).json({
+      ok: false,
+      error: 'Failed to remove team member',
+      details: error.message
+    });
+  }
+});
+
+// DELETE /api/business/:businessId/invite/:inviteId - Delete pending invite (Protected)
+app.delete('/api/business/:businessId/invite/:inviteId', requireAuth, requireBusinessOwnership, async (req, res) => {
+  const { verifiedBusinessId, businessRole } = req.authContext;
+  const { inviteId } = req.params;
+  
+  // SECURITY: Only owners can delete invites
+  if (businessRole !== 'owner') {
+    return res.status(403).json({
+      ok: false,
+      error: 'Only owners can delete invitations',
+      code: 'INSUFFICIENT_PERMISSIONS'
+    });
+  }
+  
+  try {
+    const { error } = await supabase
+      .from('team_invites')
+      .delete()
+      .eq('id', inviteId)
+      .eq('business_id', verifiedBusinessId); // Ensure ownership
+    
+    if (error) throw error;
+    
+    logger.info(`Team invite deleted`, {
+      businessId: verifiedBusinessId,
+      inviteId
+    });
+    
+    res.status(200).json({
+      ok: true,
+      message: 'Invitation deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting invite:', error);
+    res.status(500).json({
+      ok: false,
+      error: 'Failed to delete invitation',
       details: error.message
     });
   }
@@ -1988,7 +2215,11 @@ app.post('/api/business/:businessId/invite', requireAuth, requireBusinessOwnersh
 // POST /api/business/create - Create new business during onboarding (Protected)
 app.post('/api/business/create', requireAuth, async (req, res) => {
   const { userId } = req.authContext;
-  const { businessName, industry, phone, email, zipCodes, logoPath, colorScheme } = req.body;
+  const { 
+    businessName, industry, phone, email, zipCodes, 
+    isPublic, tagline, shortDescription,
+    logoPath, colorScheme 
+  } = req.body;
   
   // Validation
   if (!businessName || businessName.trim().length < 2) {
@@ -2034,6 +2265,8 @@ app.post('/api/business/create', requireAuth, async (req, res) => {
   try {
     // Check if user already has a business (limit to 1 for MVP)
     const existingBusinesses = await getUserBusinesses(userId);
+    console.log(`[Onboarding] User ${userId} existing businesses:`, existingBusinesses.length);
+    
     if (existingBusinesses && existingBusinesses.length > 0) {
       return res.status(400).json({
         ok: false,
@@ -2049,23 +2282,31 @@ app.post('/api/business/create', requireAuth, async (req, res) => {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
     
+    console.log(`[Onboarding] Generating slug from business name: "${businessName}" → "${baseSlug}"`);
+    
     let slug = baseSlug;
     let slugAttempt = 0;
     let isSlugUnique = false;
     
     // Ensure slug is unique
     while (!isSlugUnique && slugAttempt < 10) {
-      const { data: existing } = await supabase
+      const { data: existing, error: slugCheckError } = await supabase
         .from('businesses')
         .select('id')
         .eq('slug', slug)
         .single();
       
-      if (!existing) {
+      if (slugCheckError && slugCheckError.code === 'PGRST116') {
+        // PGRST116 = no rows returned, slug is unique
         isSlugUnique = true;
+        console.log(`[Onboarding] Slug "${slug}" is unique`);
+      } else if (!existing) {
+        isSlugUnique = true;
+        console.log(`[Onboarding] Slug "${slug}" is unique`);
       } else {
         slugAttempt++;
         slug = `${baseSlug}-${slugAttempt}`;
+        console.log(`[Onboarding] Slug exists, trying "${slug}"`);
       }
     }
     
@@ -2078,6 +2319,8 @@ app.post('/api/business/create', requireAuth, async (req, res) => {
     }
     
     // Create business record
+    console.log(`[Onboarding] Creating business with slug: "${slug}"`);
+    
     const { data: business, error: businessError } = await supabase
       .from('businesses')
       .insert({
@@ -2087,6 +2330,9 @@ app.post('/api/business/create', requireAuth, async (req, res) => {
         phone: phone,
         email: email,
         service_zip_codes: zipCodes,
+        is_public: isPublic || false,
+        tagline: tagline || null,
+        short_description: shortDescription || null,
         is_active: true,
         onboarding_completed: true
       })
@@ -2094,11 +2340,15 @@ app.post('/api/business/create', requireAuth, async (req, res) => {
       .single();
     
     if (businessError) {
-      console.error('Error creating business:', businessError);
+      console.error('[Onboarding] Error creating business:', businessError);
       throw businessError;
     }
     
+    console.log(`[Onboarding] Business created successfully:`, business.id);
+    
     // Link user to business as owner
+    console.log(`[Onboarding] Linking user ${userId} to business ${business.id}`);
+    
     const { error: linkError } = await supabase
       .from('business_users')
       .insert({
@@ -2109,11 +2359,13 @@ app.post('/api/business/create', requireAuth, async (req, res) => {
       });
     
     if (linkError) {
-      console.error('Error linking user to business:', linkError);
+      console.error('[Onboarding] Error linking user to business:', linkError);
       // Rollback: delete the business
       await supabase.from('businesses').delete().eq('id', business.id);
       throw linkError;
     }
+    
+    console.log(`[Onboarding] User linked successfully as owner`);
     
     logger.info(`Business created during onboarding`, {
       businessId: business.id,
@@ -2144,6 +2396,78 @@ app.post('/api/business/create', requireAuth, async (req, res) => {
     res.status(500).json({
       ok: false,
       error: 'Failed to create business',
+      details: error.message
+    });
+  }
+});
+
+// PATCH /api/business/:businessId - Update business settings (Protected)
+app.patch('/api/business/:businessId', requireAuth, requireBusinessOwnership, async (req, res) => {
+  const { verifiedBusinessId, businessRole } = req.authContext;
+  const { is_listed } = req.body;
+  
+  // SECURITY: Only owners can update business settings
+  if (businessRole !== 'owner') {
+    return res.status(403).json({
+      ok: false,
+      error: 'Only owners can update business settings',
+      code: 'INSUFFICIENT_PERMISSIONS'
+    });
+  }
+  
+  try {
+    // Build update object with only allowed fields
+    const updates = {};
+    
+    if (typeof is_listed === 'boolean') {
+      updates.is_listed = is_listed;
+    }
+    
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({
+        ok: false,
+        error: 'No valid fields to update'
+      });
+    }
+    
+    // Update business
+    const { data: business, error } = await supabase
+      .from('businesses')
+      .update(updates)
+      .eq('id', verifiedBusinessId)
+      .select()
+      .single();
+    
+    if (error) {
+      logger.error('Error updating business', { error: error.message, businessId: verifiedBusinessId });
+      return res.status(500).json({
+        ok: false,
+        error: 'Failed to update business'
+      });
+    }
+    
+    logger.info('Business updated', {
+      businessId: verifiedBusinessId,
+      updates,
+      userId: req.authContext.userId
+    });
+    
+    res.json({
+      ok: true,
+      message: 'Business updated successfully',
+      business: {
+        id: business.id,
+        slug: business.slug,
+        name: business.name,
+        is_listed: business.is_listed,
+        is_active: business.is_active
+      }
+    });
+  } catch (error) {
+    logger.error('Error updating business', { error: error.message });
+    res.status(500).json({
+      ok: false,
+      error: 'Failed to update business',
       details: error.message
     });
   }

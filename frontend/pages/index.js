@@ -1,33 +1,28 @@
 import Navbar from '../components/marketing/Navbar';
-import Hero from '../components/marketing/Hero';
-import SocialProof from '../components/marketing/SocialProof';
-import HowItWorks from '../components/marketing/HowItWorks';
-import ProductPreview from '../components/marketing/ProductPreview';
-import WhoItIsFor from '../components/marketing/WhoItIsFor';
-import FeaturesGrid from '../components/marketing/FeaturesGrid';
-import WhatChanges from '../components/marketing/WhatChanges';
-import WhyDesk from '../components/marketing/WhyDesk';
-import PricingTeaser from '../components/marketing/PricingTeaser';
-import FinalCTA from '../components/marketing/FinalCTA';
+import Footer from '../components/marketing/Footer';
+import HeroSection from '../components/landing/HeroSection';
+import HowItWorksSection from '../components/landing/HowItWorksSection';
+import FeaturedProsSection from '../components/landing/FeaturedProsSection';
+import DeskAIShowcaseSection from '../components/landing/DeskAIShowcaseSection';
+import BenefitsSection from '../components/landing/BenefitsSection';
+import PricingSection from '../components/landing/PricingSection';
+import FinalCTASection from '../components/landing/FinalCTASection';
+import { MARKETPLACE_ENABLED } from '../lib/featureFlags';
 
 export default function Home() {
   return (
     <div className="min-h-screen">
       <Navbar />
-      <Hero />
-      <SocialProof />
-      <HowItWorks />
-      <ProductPreview />
-      <WhoItIsFor />
-      <div id="features">
-        <FeaturesGrid />
-      </div>
-      <WhatChanges />
-      <WhyDesk />
+      <HeroSection />
+      <HowItWorksSection />
+      {MARKETPLACE_ENABLED && <FeaturedProsSection />}
+      <DeskAIShowcaseSection />
+      <BenefitsSection />
       <div id="pricing">
-        <PricingTeaser />
+        <PricingSection />
       </div>
-      <FinalCTA />
+      <FinalCTASection />
+      <Footer />
     </div>
   );
 }
