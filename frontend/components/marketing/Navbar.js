@@ -42,15 +42,15 @@ export default function Navbar() {
 
     const baseClasses = isMobile
       ? "block px-3 py-2 rounded-lg text-base font-medium transition-colors"
-      : "text-gray-600 hover:text-gray-900 transition-colors font-medium";
+      : "text-slate-300 hover:text-slate-50 transition-colors font-medium";
 
     const activeClasses = isMobile
-      ? "text-gray-900 bg-gray-50"
-      : "text-blue-600";
+      ? "text-slate-50 bg-white/10"
+      : "text-purple-400";
 
     const inactiveClasses = isMobile
-      ? "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-      : "text-gray-600 hover:text-gray-900";
+      ? "text-slate-300 hover:text-slate-50 hover:bg-white/5"
+      : "text-slate-300 hover:text-slate-50";
 
     const isActive = link.href && router.pathname === link.href;
     const className = `${baseClasses} ${isActive ? activeClasses : inactiveClasses}`;
@@ -72,7 +72,7 @@ export default function Navbar() {
         <Link 
           key={link.label}
           href={link.href}
-          className="inline-flex items-center px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-all shadow-sm"
+          className="inline-flex items-center px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-500 via-purple-500 to-fuchsia-500 rounded-full hover:shadow-lg hover:shadow-purple-500/50 transition-all"
         >
           {link.label}
           <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -88,7 +88,7 @@ export default function Navbar() {
           key={link.label}
           href={link.href}
           onClick={() => setMobileMenuOpen(false)}
-          className="block mx-3 mt-4 px-5 py-2.5 text-center text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-all"
+          className="block mx-3 mt-4 px-5 py-2.5 text-center text-sm font-semibold text-white bg-gradient-to-r from-indigo-500 via-purple-500 to-fuchsia-500 rounded-full hover:shadow-lg hover:shadow-purple-500/50 transition-all"
         >
           {link.label} →
         </Link>
@@ -108,7 +108,7 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200">
+    <nav className="sticky top-0 z-50 bg-slate-950/80 backdrop-blur-xl border-b border-white/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -130,16 +130,16 @@ export default function Navbar() {
               <div className="relative">
                 <button
                   onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/5 transition-colors"
                 >
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 via-purple-500 to-fuchsia-500 flex items-center justify-center text-white font-semibold text-sm shadow-lg shadow-purple-500/30">
                     {currentBusiness?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
                   </div>
-                  <span className="text-sm font-medium text-gray-700">
+                  <span className="text-sm font-medium text-slate-200">
                     {currentBusiness?.name || 'Account'}
                   </span>
                   <svg 
-                    className={`w-4 h-4 text-gray-500 transition-transform ${userDropdownOpen ? 'rotate-180' : ''}`}
+                    className={`w-4 h-4 text-slate-400 transition-transform ${userDropdownOpen ? 'rotate-180' : ''}`}
                     fill="none" 
                     stroke="currentColor" 
                     viewBox="0 0 24 24"
@@ -158,15 +158,15 @@ export default function Navbar() {
                     />
                     
                     {/* Menu */}
-                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-20">
+                    <div className="absolute right-0 mt-2 w-56 bg-slate-900 rounded-xl shadow-xl border border-white/10 py-1 z-20 backdrop-blur-xl">
                       {/* Business Info */}
                       {currentBusiness && (
-                        <div className="px-4 py-3 border-b border-gray-100">
-                          <p className="text-xs text-gray-500 mb-1">Signed in as</p>
-                          <p className="text-sm font-semibold text-gray-900 truncate">
+                        <div className="px-4 py-3 border-b border-white/10">
+                          <p className="text-xs text-slate-400 mb-1">Signed in as</p>
+                          <p className="text-sm font-semibold text-slate-50 truncate">
                             {currentBusiness.name}
                           </p>
-                          <p className="text-xs text-gray-500 truncate">
+                          <p className="text-xs text-slate-400 truncate">
                             {user?.email}
                           </p>
                         </div>
@@ -181,7 +181,7 @@ export default function Navbar() {
                                 handleLogout();
                                 setUserDropdownOpen(false);
                               }}
-                              className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center"
+                              className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors flex items-center"
                             >
                               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -191,7 +191,7 @@ export default function Navbar() {
                           ) : link.icon === 'external' ? (
                             <Link href={link.href}>
                               <a
-                                className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                className="flex items-center px-4 py-2 text-sm text-slate-300 hover:bg-white/5 transition-colors"
                                 onClick={() => setUserDropdownOpen(false)}
                                 target="_blank"
                                 rel="noopener noreferrer"
@@ -205,7 +205,7 @@ export default function Navbar() {
                           ) : (
                             <Link href={link.href}>
                               <a
-                                className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                className="flex items-center px-4 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-slate-50 transition-colors"
                                 onClick={() => setUserDropdownOpen(false)}
                               >
                                 {link.label === 'Dashboard' && (
@@ -243,7 +243,7 @@ export default function Navbar() {
           <div className="md:hidden">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+              className="inline-flex items-center justify-center p-2 rounded-lg text-slate-300 hover:text-slate-50 hover:bg-white/5 transition-colors"
               aria-expanded="false"
             >
               <span className="sr-only">Open main menu</span>
@@ -263,7 +263,7 @@ export default function Navbar() {
 
       {/* Mobile menu - Dynamic based on auth state */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-gray-200">
+        <div className="md:hidden border-t border-white/10 bg-slate-950/95 backdrop-blur-xl">
           <div className="px-2 pt-2 pb-3 space-y-1">
             {/* Always show Features and Pricing on landing page */}
             {!isAuthenticated && (
@@ -271,14 +271,14 @@ export default function Navbar() {
                 <a
                   href="#features"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="block px-3 py-2 rounded-lg text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors"
+                  className="block px-3 py-2 rounded-lg text-base font-medium text-slate-300 hover:text-slate-50 hover:bg-white/5 transition-colors"
                 >
                   Features
                 </a>
                 <a
                   href="#pricing"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="block px-3 py-2 rounded-lg text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors"
+                  className="block px-3 py-2 rounded-lg text-base font-medium text-slate-300 hover:text-slate-50 hover:bg-white/5 transition-colors"
                 >
                   Pricing
                 </a>
