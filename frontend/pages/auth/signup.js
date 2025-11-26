@@ -1,5 +1,5 @@
-// Owner Signup Page - /auth/signup
-// Simplified flow: Create account → Redirect to onboarding wizard
+// Role-based Signup Page - /auth/signup
+// Supports both owner and client signup flows
 // Handles email confirmation when enabled in Supabase
 
 import { useState, useEffect } from 'react';
@@ -8,7 +8,7 @@ import Link from 'next/link';
 import Logo from '../../components/Logo';
 import MarketingLayout from '../../components/marketing/MarketingLayout';
 import { supabase, signUp, upsertProfile } from '../../lib/supabase';
-import { MARKETPLACE_ENABLED } from '../../lib/featureFlags';
+import { handlePostAuthRedirect } from '../../lib/authHelpers';
 
 export default function Signup() {
   const router = useRouter();
@@ -114,21 +114,12 @@ export default function Signup() {
         }
       }
       
-      // Success! Redirect based on role
-      // Note: We intentionally keep loading=true during redirect for UX
-      if (userRole === 'owner') {
-        console.log('🏢 Redirecting owner to onboarding...');
-        router.push('/onboarding');
-      } else {
-        // Customers go to marketplace (if enabled) or client page
-        if (MARKETPLACE_ENABLED) {
-          console.log('🛒 Redirecting customer to marketplace...');
-          router.push('/marketplace');
-        } else {
-          console.log('👥 Redirecting customer to client page...');
-          router.push('/client');
-        }
-      }
+      // Success! Use centralized redirect logic based on role
+      console.log('� Signup complete, handling post-auth redirect...');
+      await handlePostAuthRedirect({ 
+        router, 
+        explicitRoleFromQuery: userRole 
+      });
       
       // Note: We intentionally don't reset loading here because we're redirecting
       // The page will unmount during navigation

@@ -21,21 +21,21 @@ export function withOwnerAuth(Component) {
       // Not logged in at all - redirect to login
       if (!user) {
         console.log('No user, redirecting to login');
-        router.push('/login?role=owner');
+        router.push('/auth/login?role=owner');
         return;
       }
 
-      // Logged in but no profile - redirect to client (safe default)
+      // Logged in but no profile - redirect to home (error state)
       if (!profile) {
-        console.warn('User has no profile, redirecting to client');
-        router.push('/client?message=Please complete your profile');
+        console.warn('User has no profile, redirecting to home');
+        router.push('/?error=no_profile');
         return;
       }
 
-      // Logged in as client - redirect to client home
+      // Logged in as client - redirect to marketplace
       if (profile.role === 'client') {
-        console.log('Client trying to access owner route, redirecting to /client');
-        router.push('/client?message=You\'re signed in as a customer. Business owners should use the owner dashboard.');
+        console.log('Client trying to access owner route, redirecting to marketplace');
+        router.push('/marketplace');
         return;
       }
 

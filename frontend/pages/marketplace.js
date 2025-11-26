@@ -1,6 +1,6 @@
 // Marketplace Page - /marketplace
-// Public marketplace for businesses listed on Desk.ai (Growzone Market v1)
-// FEATURE FLAG: Controlled by MARKETPLACE_ENABLED in lib/featureFlags.js
+// Client-only marketplace for businesses listed on Desk.ai
+// Protected by client authentication
 
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
@@ -10,22 +10,11 @@ import Logo from '../components/Logo';
 import Footer from '../components/marketing/Footer';
 import { BACKEND_URL } from '../lib/config';
 import { formatIndustryName } from '../lib/industryServices';
-import { MARKETPLACE_ENABLED } from '../lib/featureFlags';
+import { withClientAuth } from '../lib/withClientAuth';
 
-export default function Marketplace() {
+function Marketplace() {
   const router = useRouter();
 
-  // FEATURE FLAG: Redirect if marketplace is disabled
-  useEffect(() => {
-    if (!MARKETPLACE_ENABLED) {
-      router.push('/');
-    }
-  }, [router]);
-
-  // Return empty while redirecting
-  if (!MARKETPLACE_ENABLED) {
-    return null;
-  }
   const [businesses, setBusinesses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -477,3 +466,6 @@ export default function Marketplace() {
     </>
   );
 }
+
+// Protect this page - clients only
+export default withClientAuth(Marketplace);

@@ -1,13 +1,13 @@
-// Owner Login Page - /auth/login
-// Secure login for existing business owners
+// Role-based Login Page - /auth/login
+// Supports login for both business owners and clients
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Logo from '../../components/Logo';
 import MarketingLayout from '../../components/marketing/MarketingLayout';
-import { supabase, signIn, getUserProfile, getUserBusinessStatus } from '../../lib/supabase';
-import { MARKETPLACE_ENABLED } from '../../lib/featureFlags';
+import { supabase, signIn } from '../../lib/supabase';
+import { handlePostAuthRedirect } from '../../lib/authHelpers';
 
 export default function Login() {
   const router = useRouter();
@@ -16,7 +16,6 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [checkingBusiness, setCheckingBusiness] = useState(false);
   const [error, setError] = useState(null);
   const [expectedRole, setExpectedRole] = useState(null);
 
@@ -37,7 +36,6 @@ export default function Login() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    setCheckingBusiness(false);
     
     try {
       // Validation
@@ -55,47 +53,11 @@ export default function Login() {
       
       console.log('✅ Login successful, user ID:', user.id);
       
-      // Fetch user profile to get role
-      setCheckingBusiness(true);
-      const profile = await getUserProfile(user.id);
-      
-      if (!profile) {
-        console.warn('⚠️ No profile found for user, redirecting to home');
-        setLoading(false);
-        setCheckingBusiness(false);
-        router.push('/');
-        return;
-      }
-      
-      console.log('👤 User role:', profile.role);
-      
-      // Redirect based on role
-      if (profile.role === 'owner') {
-        console.log('🏢 Owner logged in, checking business status...');
-        
-        // Check if owner has any businesses
-        const businessStatus = await getUserBusinessStatus(user.id);
-        console.log('📊 Business status:', businessStatus);
-        
-        if (businessStatus.hasBusiness) {
-          console.log('✅ Owner has business, redirecting to dashboard...');
-          // Keep loading state true during redirect for UX
-          router.push('/dashboard');
-        } else {
-          console.log('📝 Owner has no business yet, redirecting to onboarding...');
-          // Keep loading state true during redirect for UX
-          router.push('/onboarding');
-        }
-      } else {
-        // Clients/customers go to marketplace (if enabled) or client page
-        if (MARKETPLACE_ENABLED) {
-          console.log('🛒 Customer logged in, redirecting to marketplace...');
-          router.push('/marketplace');
-        } else {
-          console.log('👥 Customer logged in, redirecting to client page...');
-          router.push('/client');
-        }
-      }
+      // Use centralized redirect logic
+      await handlePostAuthRedirect({ 
+        router,
+        explicitRoleFromQuery: expectedRole 
+      });
       
       // Note: We intentionally don't reset loading here because we're redirecting
       // The page will unmount during navigation
@@ -117,7 +79,6 @@ export default function Login() {
       
       setError(errorMessage);
       setLoading(false);
-      setCheckingBusiness(false);
     }
   };
 
@@ -233,16 +194,16 @@ export default function Login() {
               <div>
                 <button
                   type="submit"
-                  disabled={loading || checkingBusiness || !isSupabaseConfigured}
+                  disabled={loading || !isSupabaseConfigured}
                   className="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-lg text-sm font-semibold text-white bg-gradient-to-r from-indigo-500 via-purple-500 to-fuchsia-500 hover:shadow-purple-500/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
-                  {loading || checkingBusiness ? (
+                  {loading ? (
                     <span className="flex items-center justify-center">
                       <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      {checkingBusiness ? 'Loading your account...' : 'Signing in...'}
+                      Signing in...
                     </span>
                   ) : !isSupabaseConfigured ? (
                     'Service Unavailable'

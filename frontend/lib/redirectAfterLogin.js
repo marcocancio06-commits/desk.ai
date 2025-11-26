@@ -160,24 +160,14 @@ export function checkRouteAccess({ currentPath, role, hasBusiness, isAuthenticat
  * @returns {Array} Array of link objects { label, href, variant }
  */
 export function getNavbarLinks({ isAuthenticated, role, hasBusiness, currentBusiness }) {
-  // Not logged in - Show public navigation
+  // Not logged in - Show public navigation with role-based CTAs
   if (!isAuthenticated) {
-    const links = [
-      { label: 'Home', href: '/' },
+    return [
+      { label: 'Features', href: '/#features' },
+      { label: 'Pricing', href: '/#pricing' },
+      { label: 'For Businesses', href: '/auth/login?role=owner', isCTA: true },
+      { label: 'Find Services', href: '/auth/login?role=client' },
     ];
-    
-    // Only show marketplace link if feature is enabled
-    if (MARKETPLACE_ENABLED) {
-      links.push({ label: 'Marketplace', href: '/marketplace' });
-    }
-    
-    links.push(
-      { label: 'About', href: '/#about' },
-      { label: 'Login', href: '/login' },
-      { label: 'For Business Owners', href: '/owner-signup', isCTA: true }
-    );
-    
-    return links;
   }
 
   // Logged in as owner - Show avatar dropdown items as links
@@ -206,15 +196,9 @@ export function getNavbarLinks({ isAuthenticated, role, hasBusiness, currentBusi
   // Logged in as client
   if (role === 'client') {
     const links = [
-      { label: 'Home', href: '/client' },
+      { label: 'Marketplace', href: '/marketplace' },
+      { label: 'Logout', type: 'button' }
     ];
-    
-    // Only show marketplace link if feature is enabled
-    if (MARKETPLACE_ENABLED) {
-      links.push({ label: 'Marketplace', href: '/marketplace' });
-    }
-    
-    links.push({ label: 'Logout', type: 'button' });
     
     return links;
   }

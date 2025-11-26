@@ -1,5 +1,6 @@
 // Public business page - /b/[slug]
-// Polished public-facing page for real customers
+// Client-only page for chatting with businesses
+// Protected by client authentication
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
@@ -10,8 +11,9 @@ import ChatInterface from '../../components/demo/ChatInterface';
 import Footer from '../../components/marketing/Footer';
 import { BACKEND_URL } from '../../lib/config';
 import { getIndustryServices, getIndustryDescription, formatIndustryName } from '../../lib/industryServices';
+import { withClientAuth } from '../../lib/withClientAuth';
 
-export default function PublicBusinessPage() {
+function PublicBusinessPage() {
   const router = useRouter();
   const { slug } = router.query;
   
@@ -532,3 +534,6 @@ export default function PublicBusinessPage() {
     </>
   );
 }
+
+// Protect this page - clients only
+export default withClientAuth(PublicBusinessPage);

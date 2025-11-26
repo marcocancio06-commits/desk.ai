@@ -37,18 +37,18 @@ export default function DarkHeroSection() {
                 href="/auth/signup?role=owner"
                 className="group relative inline-flex items-center justify-center px-8 py-4 text-base font-semibold text-white rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-fuchsia-500 hover:from-indigo-600 hover:via-purple-600 hover:to-fuchsia-600 transition-all shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40"
               >
-                For business owners
+                For Business Owners
                 <svg className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
               </Link>
 
-              <button
+              <Link
+                href="/auth/login?role=client"
                 className="inline-flex items-center justify-center px-8 py-4 text-base font-semibold text-slate-200 rounded-full border border-slate-700 bg-slate-900/60 hover:bg-slate-800/80 hover:border-slate-600 transition-all backdrop-blur-sm"
-                onClick={() => window.location.href = 'mailto:marco@growzone.com?subject=Interested in Desk.ai'}
               >
-                Talk to founders
-              </button>
+                Find Services
+              </Link>
             </div>
           </div>
 
