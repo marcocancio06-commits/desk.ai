@@ -1,5 +1,5 @@
-import StatusPill from '../../../components/ui/StatusPill';
-import UrgencyBadge from '../../../components/ui/UrgencyBadge';
+import StatusPill from '../ui/StatusPill';
+import UrgencyBadge from '../ui/UrgencyBadge';
 
 export default function LeadTable({ leads, onLeadClick }) {
   const formatDate = (dateString) => {

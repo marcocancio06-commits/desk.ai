@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import Layout from './components/Layout';
+import Layout from '../../components/dashboard/Layout';
 import MetricCard from '../../components/ui/StatCard';
 import EmptyState from '../../components/ui/EmptyState';
 import QuickActionCard from '../../components/ui/QuickActionCard';

@@ -3,7 +3,7 @@ import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import { format, parse, startOfWeek, getDay, addHours, setHours, setMinutes } from 'date-fns';
 import { enUS } from 'date-fns/locale';
-import Layout from './components/Layout';
+import Layout from '../../components/dashboard/Layout';
 import { BACKEND_URL } from '../../lib/config';
 import { withAuth, useAuth } from '../../contexts/AuthContext';
 import { getAuthHeader } from '../../lib/supabase';

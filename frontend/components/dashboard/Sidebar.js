@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import Logo from '../../../components/Logo';
-import { useAuth } from '../../../contexts/AuthContext';
-import { getAuthorizedLinks, PERMISSIONS } from '../../../lib/permissions';
+import Logo from '../Logo';
+import { useAuth } from '../../contexts/AuthContext';
+import { getAuthorizedLinks, PERMISSIONS } from '../../lib/permissions';
 
 export default function Sidebar({ isOpen, onClose }) {
   const router = useRouter();

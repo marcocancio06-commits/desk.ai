@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Sidebar from './Sidebar';
-import Footer from '../../../components/ui/Footer';
-import Logo from '../../../components/Logo';
+import Footer from '../ui/Footer';
+import Logo from '../Logo';
 
 export default function Layout({ children, title, subtitle }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);

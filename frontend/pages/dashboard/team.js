@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import Layout from './components/Layout';
+import Layout from '../../components/dashboard/Layout';
 import { withAuth, useAuth } from '../../contexts/AuthContext';
 import { Users, Mail, Shield, Trash2, X, UserPlus, Clock } from 'lucide-react';
 

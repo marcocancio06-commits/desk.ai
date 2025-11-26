@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import Layout from './components/Layout';
+import Layout from '../../components/dashboard/Layout';
 import { withAuth, useAuth } from '../../contexts/AuthContext';
 import { canAccessPage } from '../../lib/permissions';
 import { MARKETPLACE_ENABLED } from '../../lib/featureFlags';

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import Layout from './components/Layout';
+import Layout from '../../components/dashboard/Layout';
 import { withAuth } from '../../contexts/AuthContext';
 
 function Logs() {

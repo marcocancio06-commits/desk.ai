@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import Layout from './components/Layout';
+import Layout from '../../components/dashboard/Layout';
 import EmptyState from '../../components/ui/EmptyState';
-import LeadTable from './components/LeadTable';
-import LeadDetailModal from './components/LeadDetailModal';
+import LeadTable from '../../components/dashboard/LeadTable';
+import LeadDetailModal from '../../components/dashboard/LeadDetailModal';
 import QuickActionsBar from '../../components/ui/QuickActionsBar';
 import { RefreshCw, Filter } from 'lucide-react';
 import { BACKEND_URL } from '../../lib/config';
