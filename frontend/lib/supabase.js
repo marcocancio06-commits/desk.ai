@@ -1,7 +1,6 @@
 /**
- * Supabase Client for Desk.ai Frontend
- * 
- * Provides browser-based Supabase client with auth capabilities
+ * Minimal Supabase Client for Desk.ai Frontend
+ * MVP: Simple, direct Supabase auth - no wrappers, no complexity
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -9,38 +8,11 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-// Validate environment variables at build time
-if (!supabaseUrl || !supabaseAnonKey) {
-  if (typeof window === 'undefined') {
-    // Server-side: Log error during build/SSR
-    console.error('❌ CRITICAL: Missing Supabase configuration!');
-    console.error('❌ Required environment variables:');
-    console.error('   - NEXT_PUBLIC_SUPABASE_URL');
-    console.error('   - NEXT_PUBLIC_SUPABASE_ANON_KEY');
-    console.error('❌ Add these to /frontend/.env.local');
-  }
-}
+export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
 
-// Create Supabase client with enhanced configuration
-const supabaseClient = supabaseUrl && supabaseAnonKey
-  ? createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-        storageKey: 'deskai-auth-token',
-        flowType: 'pkce'
-      },
-      global: {
-        headers: {
-          'x-application-name': 'desk.ai'
-        }
-      }
-    })
+export const supabase = isSupabaseConfigured
+  ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
-
-export const supabase = supabaseClient;
 
 /**
  * Get current session

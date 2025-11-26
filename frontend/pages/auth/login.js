@@ -1,83 +1,60 @@
-// Role-based Login Page - /auth/login
-// Supports login for both business owners and clients
+// Simplified Login Page - MVP Version
+// Everyone is a business owner, always redirects to /dashboard
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Logo from '../../components/Logo';
 import MarketingLayout from '../../components/marketing/MarketingLayout';
-import { supabase, signIn } from '../../lib/supabase';
-import { handlePostAuthRedirect } from '../../lib/authHelpers';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 
 export default function Login() {
   const router = useRouter();
-  const { role: roleParam } = router.query;
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [expectedRole, setExpectedRole] = useState(null);
-
-  // Check if Supabase is configured
-  const isSupabaseConfigured = !!supabase;
-
-  // Set expected role from query params
-  useEffect(() => {
-    if (roleParam) {
-      const normalizedRole = roleParam.toLowerCase();
-      if (normalizedRole === 'owner' || normalizedRole === 'client') {
-        setExpectedRole(normalizedRole);
-      }
-    }
-  }, [roleParam]);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(null);
+    setError('');
     setLoading(true);
-    
+
+    if (!isSupabaseConfigured || !supabase) {
+      setError('Auth service is not configured (Supabase URL / key missing).');
+      setLoading(false);
+      return;
+    }
+
     try {
-      // Validation
-      if (!email || !password) {
-        throw new Error('Email and password are required');
-      }
-      
-      // Sign in with Supabase
-      console.log('🔐 Signing in...', email);
-      const { user } = await signIn(email, password);
-      
-      if (!user) {
-        throw new Error('Login failed - no user returned');
-      }
-      
-      console.log('✅ Login successful, user ID:', user.id);
-      
-      // Use centralized redirect logic
-      await handlePostAuthRedirect({ 
-        router,
-        explicitRoleFromQuery: expectedRole 
+      console.log('🔐 Starting login for', email);
+
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
-      
-      // Note: We intentionally don't reset loading here because we're redirecting
-      // The page will unmount during navigation
-      
-    } catch (err) {
-      console.error('❌ Login error:', err);
-      
-      // User-friendly error messages
-      let errorMessage = 'Failed to sign in. Please try again.';
-      if (err.message.includes('Invalid login credentials')) {
-        errorMessage = 'Invalid email or password';
-      } else if (err.message.includes('Email not confirmed')) {
-        errorMessage = 'Please confirm your email address before signing in';
-      } else if (err.message.includes('Supabase not configured')) {
-        errorMessage = 'Authentication service is not configured. Please contact support.';
-      } else if (err.message) {
-        errorMessage = err.message;
+
+      console.log('📥 signInWithPassword response:', { data, signInError });
+
+      if (signInError) {
+        console.error('❌ Login error:', signInError);
+        setError('Incorrect email or password, or service unavailable.');
+        return;
       }
-      
-      setError(errorMessage);
+
+      if (!data || !data.session) {
+        console.error('❌ No session returned from Supabase:', data);
+        setError('Login failed – no session created.');
+        return;
+      }
+
+      console.log('✅ Login success, redirecting to /dashboard');
+      router.push('/dashboard');
+    } catch (err) {
+      console.error('💥 Unexpected login error:', err);
+      setError('Something went wrong. Please try again.');
+    } finally {
       setLoading(false);
     }
   };
@@ -93,8 +70,8 @@ export default function Login() {
             Sign in to Desk.ai
           </h2>
           <p className="mt-2 text-center text-sm text-slate-400">
-            {expectedRole === 'owner' ? 'Business Owner Login' : expectedRole === 'client' ? 'Customer Login' : 'Sign in to your account'} • Don't have an account?{' '}
-            <Link href={`/auth/signup${roleParam ? `?role=${roleParam}` : ''}`} className="font-medium text-purple-400 hover:text-purple-300 transition-colors">
+            Don't have an account?{' '}
+            <Link href="/auth/signup" className="font-medium text-purple-400 hover:text-purple-300 transition-colors">
               Sign up
             </Link>
           </p>

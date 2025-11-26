@@ -1,145 +1,120 @@
-// Role-based Signup Page - /auth/signup
-// Supports both owner and client signup flows
-// Handles email confirmation when enabled in Supabase
+// Simplified Signup Page - MVP Version
+// Everyone is a business owner, always redirects to /onboarding
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Logo from '../../components/Logo';
 import MarketingLayout from '../../components/marketing/MarketingLayout';
-import { supabase, signUp, upsertProfile } from '../../lib/supabase';
-import { handlePostAuthRedirect } from '../../lib/authHelpers';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 
 export default function Signup() {
   const router = useRouter();
-  const { role: roleParam } = router.query;
   
   // Form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [userRole, setUserRole] = useState('client'); // Default to client
   
   // UI state
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState('');
   const [emailConfirmationRequired, setEmailConfirmationRequired] = useState(false);
 
-  // Check if Supabase is configured
-  const isSupabaseConfigured = !!supabase;
-
-  // Set role from query params
-  useEffect(() => {
-    if (roleParam) {
-      const normalizedRole = roleParam.toLowerCase();
-      if (normalizedRole === 'owner' || normalizedRole === 'client') {
-        setUserRole(normalizedRole);
-      } else {
-        console.warn('Invalid role parameter, defaulting to client');
-        setUserRole('client');
-      }
-    }
-  }, [roleParam]);
-
-  const handleAccountSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(null);
+    setError('');
+    setEmailConfirmationRequired(false);
     setLoading(true);
-    
+
+    if (!isSupabaseConfigured || !supabase) {
+      setError('Auth service is not configured (Supabase URL / key missing).');
+      setLoading(false);
+      return;
+    }
+
+    if (!email || !password) {
+      setError('Please enter an email and password.');
+      setLoading(false);
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      setLoading(false);
+      return;
+    }
+
     try {
-      // Validation
-      if (!email || !password) {
-        throw new Error('Email and password are required');
-      }
-      
-      if (password.length < 6) {
-        throw new Error('Password must be at least 6 characters');
-      }
-      
-      if (password !== confirmPassword) {
-        throw new Error('Passwords do not match');
-      }
-      
-      // Create Supabase Auth user
-      console.log('🔐 Creating auth user with role:', userRole);
-      const authData = await signUp(email, password, {
-        role: userRole // Pass role as metadata
+      console.log('🔐 Starting signup for', email);
+
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            role: 'owner', // MVP: everyone is owner
+          },
+        },
       });
-      
-      console.log('📧 SignUp response:', { 
-        hasUser: !!authData?.user, 
-        hasSession: !!authData?.session,
-        emailConfirmationRequired: authData?.emailConfirmationRequired 
-      });
-      
-      // Check if email confirmation is required
-      if (authData && authData.emailConfirmationRequired) {
-        console.log('✉️ Email confirmation required');
-        setEmailConfirmationRequired(true);
-        setLoading(false);
+
+      console.log('📥 signUp response:', { data, signUpError });
+
+      if (signUpError) {
+        console.error('❌ Signup error:', signUpError);
+        if (signUpError.message?.toLowerCase().includes('already')) {
+          setError('This email is already registered. Try logging in instead.');
+        } else {
+          setError('Could not create account. Please try again.');
+        }
         return;
       }
-      
-      // User created successfully, check if we have a user object
-      if (!authData || !authData.user) {
-        console.error('❌ Invalid signup response:', authData);
-        throw new Error('Failed to create user - invalid response from server');
+
+      // If email confirmation is required (no session yet)
+      if (data && data.user && !data.session) {
+        console.log('✉️ Email confirmation required');
+        setEmailConfirmationRequired(true);
+        return;
       }
-      
-      const userId = authData.user.id;
-      console.log('✅ Auth user created:', userId);
-      
-      // Create profile with role
-      // Important: This creates the profile in public.profiles table
-      // If this fails, the account still exists in auth.users, but without a profile
-      console.log('👤 Creating profile with role:', userRole);
+
+      if (!data || !data.user) {
+        console.error('❌ Invalid signup response:', data);
+        setError('Failed to create user. Please try again.');
+        return;
+      }
+
+      const userId = data.user.id;
+
+      // Best-effort profile create (non-blocking)
+      console.log('👤 Best-effort profile upsert for', userId);
       try {
-        await upsertProfile(userId, {
-          full_name: email.split('@')[0], // Default name from email
-          email: email, // Store email in profile for easier querying
-          role: userRole
-        });
-        console.log('✅ Profile created successfully');
-      } catch (profileError) {
-        console.error('⚠️ Profile creation failed:', profileError);
-        // Profile creation failed, but auth user exists
-        // Show a specific error about the profile issue
-        if (profileError.message?.includes('schema cache') || profileError.message?.includes('not found')) {
-          throw new Error('Database table missing. Please contact support with error: profiles table not found');
-        } else if (profileError.message?.includes('permission') || profileError.message?.includes('policy')) {
-          throw new Error('Permission error creating profile. Please contact support.');
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert(
+            {
+              id: userId,
+              email,
+              full_name: email.split('@')[0],
+              role: 'owner',
+            },
+            { onConflict: 'id' }
+          );
+
+        if (profileError) {
+          console.error('⚠️ Profile creation failed (non-blocking):', profileError);
         } else {
-          // For other profile errors, throw the original error
-          throw profileError;
+          console.log('✅ Profile created successfully');
         }
+      } catch (profileError) {
+        console.error('⚠️ Profile creation error (non-blocking):', profileError);
       }
-      
-      // Success! Use centralized redirect logic based on role
-      console.log('� Signup complete, handling post-auth redirect...');
-      await handlePostAuthRedirect({ 
-        router, 
-        explicitRoleFromQuery: userRole 
-      });
-      
-      // Note: We intentionally don't reset loading here because we're redirecting
-      // The page will unmount during navigation
-      
+
+      console.log('🎉 Signup complete, redirecting to onboarding');
+      router.push('/onboarding');
     } catch (err) {
-      console.error('❌ Signup error:', err);
-      
-      // User-friendly error messages
-      let errorMessage = 'Failed to create account. Please try again.';
-      if (err.message.includes('already registered')) {
-        errorMessage = 'This email is already registered. Try logging in instead.';
-      } else if (err.message.includes('Password')) {
-        errorMessage = err.message;
-      } else if (err.message.includes('Supabase not configured')) {
-        errorMessage = 'Authentication service is not configured. Please contact support.';
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-      
-      setError(errorMessage);
+      console.error('💥 Unexpected signup error:', err);
+      setError('Something went wrong. Please try again.');
+    } finally {
       setLoading(false);
     }
   };
@@ -182,7 +157,7 @@ export default function Signup() {
                   </svg>
                   <div className="text-sm text-indigo-200">
                     <p className="font-medium mb-1">Please confirm your email address</p>
-                    <p className="text-indigo-300">Click the link in the email to activate your account and continue to the onboarding wizard.</p>
+                    <p className="text-indigo-300">Click the link in the email to activate your account, then log in.</p>
                   </div>
                 </div>
               </div>
@@ -227,11 +202,11 @@ export default function Signup() {
             <Logo variant="large" showText={true} />
           </div>
           <h2 className="text-center text-3xl font-bold tracking-tight text-slate-50">
-            Create Your {userRole === 'owner' ? 'Business Owner' : 'Customer'} Account
+            Create Your Account
           </h2>
           <p className="mt-2 text-center text-sm text-slate-400">
-            {userRole === 'owner' ? 'Set up your AI front desk in minutes' : 'Access chat and marketplace'} • Already have an account?{' '}
-            <Link href={`/auth/login${roleParam ? `?role=${roleParam}` : ''}`} className="font-medium text-purple-400 hover:text-purple-300 transition-colors">
+            Already have an account?{' '}
+            <Link href="/auth/login" className="font-medium text-purple-400 hover:text-purple-300 transition-colors">
               Sign in
             </Link>
           </p>
@@ -266,7 +241,7 @@ export default function Signup() {
               </div>
             )}
 
-            <form onSubmit={handleAccountSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-slate-200">
                   Email address
@@ -280,109 +255,90 @@ export default function Signup() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="appearance-none block w-full px-4 py-3 border border-slate-700 bg-slate-900/70 rounded-xl text-slate-50 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                    disabled={loading}
+                    className="appearance-none block w-full px-4 py-3 border border-slate-700 bg-slate-900/70 rounded-xl text-slate-50 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                     placeholder="you@example.com"
                   />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-slate-200">
-                Password
-              </label>
-              <div className="mt-1">
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="appearance-none block w-full px-4 py-3 border border-slate-700 bg-slate-900/70 rounded-xl text-slate-50 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                  placeholder="••••••••"
-                />
-              </div>
-              <p className="mt-1 text-xs text-slate-500">Must be at least 6 characters</p>
-            </div>
-
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-200">
-                Confirm password
-              </label>
-              <div className="mt-1">
-                <input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="appearance-none block w-full px-4 py-3 border border-slate-700 bg-slate-900/70 rounded-xl text-slate-50 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                  placeholder="••••••••"
-                />
-              </div>
-            </div>
-
-            <div>
-              <button
-                type="submit"
-                disabled={loading || !isSupabaseConfigured}
-                className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-indigo-500 via-purple-500 to-fuchsia-500 hover:from-indigo-600 hover:via-purple-600 hover:to-fuchsia-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl"
-              >
-                {!isSupabaseConfigured ? (
-                  'Service Unavailable'
-                ) : loading ? (
-                  <span className="flex items-center">
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Creating Account...
-                  </span>
-                ) : (
-                  <>
-                    Create Account
-                    <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                    </svg>
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-
-          {/* Info notice */}
-          <div className="mt-6 pt-6 border-t border-slate-700/50">
-            {userRole === 'owner' ? (
-              <div className="space-y-2">
-                <div className="flex items-center justify-center text-sm text-slate-300">
-                  <svg className="w-4 h-4 text-indigo-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                  <span>Business Owner Account</span>
                 </div>
-                <p className="text-xs text-slate-500 text-center">
-                  After creating your account, you'll complete a quick setup wizard to configure your business.
-                </p>
               </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="flex items-center justify-center text-sm text-slate-300">
-                  <svg className="w-4 h-4 text-purple-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
-                  </svg>
-                  <span>Customer Account</span>
+
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-slate-200">
+                  Password
+                </label>
+                <div className="mt-1">
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={loading}
+                    className="appearance-none block w-full px-4 py-3 border border-slate-700 bg-slate-900/70 rounded-xl text-slate-50 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    placeholder="••••••••"
+                  />
                 </div>
-                <p className="text-xs text-slate-500 text-center">
-                  Access business chat and marketplace features.
-                </p>
+                <p className="mt-1 text-xs text-slate-500">Must be at least 6 characters</p>
               </div>
-            )}
+
+              <div>
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-200">
+                  Confirm password
+                </label>
+                <div className="mt-1">
+                  <input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    disabled={loading}
+                    className="appearance-none block w-full px-4 py-3 border border-slate-700 bg-slate-900/70 rounded-xl text-slate-50 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    placeholder="••••••••"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <button
+                  type="submit"
+                  disabled={loading || !isSupabaseConfigured}
+                  className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-indigo-500 via-purple-500 to-fuchsia-500 hover:from-indigo-600 hover:via-purple-600 hover:to-fuchsia-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl"
+                >
+                  {!isSupabaseConfigured ? (
+                    'Service Unavailable'
+                  ) : loading ? (
+                    <span className="flex items-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Creating Account...
+                    </span>
+                  ) : (
+                    <>
+                      Create Account
+                      <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                      </svg>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+
+            {/* Info notice */}
+            <div className="mt-6 pt-6 border-t border-slate-700/50">
+              <p className="text-xs text-slate-500 text-center">
+                After creating your account, you'll complete a quick onboarding wizard.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
       </div>
     </MarketingLayout>
   );
