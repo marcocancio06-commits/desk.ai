@@ -49,26 +49,22 @@ export default function ScheduleAppointmentModal({
         throw new Error('Date and time are required');
       }
       
-      // Build ISO datetime strings
-      const scheduledStart = new Date(`${date}T${time}`).toISOString();
-      const durationMs = parseInt(duration) * 60 * 1000;
-      const scheduledEnd = new Date(new Date(scheduledStart).getTime() + durationMs).toISOString();
-      
-      // Build appointment payload
+      // Build appointment payload for demo endpoint
       const payload = {
-        customerPhone: defaultData.customerPhone || 'Unknown',
-        issueSummary: defaultData.issueSummary || 'No description',
+        phone: defaultData.customerPhone || 'Unknown',
+        issue: defaultData.issueSummary || 'No description',
         zipCode: defaultData.zipCode,
-        preferredTimeText: defaultData.preferredTimeText,
+        preferredTime: defaultData.preferredTimeText,
         urgency: defaultData.urgency || 'normal',
-        sourceChannel: 'web_chat',
-        scheduledStart,
-        scheduledEnd,
-        internalNotes: notes || undefined
+        date,
+        time,
+        duration,
+        notes: notes || undefined
       };
       
-      // Send to backend
-      const response = await fetch('http://localhost:3001/api/appointments', {
+      // Send to backend - use demo endpoint (no auth required)
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://growzone-dobi-production.up.railway.app';
+      const response = await fetch(`${backendUrl}/api/demo/schedule`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

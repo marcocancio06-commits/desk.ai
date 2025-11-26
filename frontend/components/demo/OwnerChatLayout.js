@@ -124,7 +124,7 @@ export default function OwnerChatLayout() {
               customerPhone={customerPhone}
               placeholder="Type your message..."
               chatTitle="Desk.ai Assistant"
-              chatSubtitle="Demo business: Houston Premier Plumbing"
+              chatSubtitle="Demo business: Elite Auto Detailing"
             />
           </div>
 

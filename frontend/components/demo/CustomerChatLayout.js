@@ -47,7 +47,7 @@ export default function CustomerChatLayout() {
                   This is a demonstration of Desk.ai's chat support capabilities
                 </p>
                 <p className="text-xs text-amber-700 mt-1">
-                  Try asking about plumbing services, pricing, or scheduling. The AI is trained on Houston Premier Plumbing's business.
+                  Try asking about auto detailing services, pricing, or scheduling. The AI is trained on Elite Auto Detailing's business.
                 </p>
               </div>
             </div>
@@ -57,10 +57,10 @@ export default function CustomerChatLayout() {
         {/* Customer-facing header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
-            Message Houston Premier Plumbing
+            Message Elite Auto Detailing
           </h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Get help with your plumbing needs. We're here to assist you 24/7.
+            Get help with your auto detailing needs. We're here to assist you 24/7.
           </p>
         </div>
 
@@ -95,8 +95,8 @@ export default function CustomerChatLayout() {
             isLoading={isLoading}
             error={error}
             customerPhone={customerPhone}
-            placeholder="Describe your plumbing issue..."
-            chatTitle="Houston Premier Plumbing"
+            placeholder="Describe your auto detailing needs..."
+            chatTitle="Elite Auto Detailing"
             chatSubtitle="We're here to help!"
           />
         </div>

@@ -11,7 +11,7 @@ export default function ChatInterface({
   customerPhone,
   placeholder = "Type your message...",
   chatTitle = "Desk.ai Assistant",
-  chatSubtitle = "Demo business: Houston Premier Plumbing",
+  chatSubtitle = "Demo business: Elite Auto Detailing",
   quickPrompts = null, // Array of quick prompt objects: [{ text, action }]
   onQuickPrompt = null // Callback when quick prompt is clicked
 }) {

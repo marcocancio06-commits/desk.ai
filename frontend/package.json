@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.84.0",
+    "@supabase/supabase-js": "^2.86.0",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.554.0",
     "next": "^14.2.0",
