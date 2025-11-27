@@ -9,6 +9,7 @@
 // - Optionally syncs to Google Calendar (if enabled)
 
 import { useState } from 'react';
+import { BACKEND_URL, DEMO_BUSINESS } from '../../config/demoConfig';
 
 export default function ScheduleAppointmentModal({ 
   isOpen, 
@@ -51,6 +52,7 @@ export default function ScheduleAppointmentModal({
       
       // Build appointment payload for demo endpoint
       const payload = {
+        businessId: DEMO_BUSINESS.id,
         phone: defaultData.customerPhone || 'Unknown',
         issue: defaultData.issueSummary || 'No description',
         zipCode: defaultData.zipCode,
@@ -63,8 +65,7 @@ export default function ScheduleAppointmentModal({
       };
       
       // Send to backend - use demo endpoint (no auth required)
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://growzone-dobi-production.up.railway.app';
-      const response = await fetch(`${backendUrl}/api/demo/schedule`, {
+      const response = await fetch(`${BACKEND_URL}/api/demo/schedule`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -74,7 +75,7 @@ export default function ScheduleAppointmentModal({
       
       const data = await response.json();
       
-      if (!data.ok) {
+      if (!data.success && !data.ok) {
         throw new Error(data.error || 'Failed to create appointment');
       }
       
@@ -83,7 +84,7 @@ export default function ScheduleAppointmentModal({
       
       // Notify parent
       if (onSuccess) {
-        onSuccess(data.data);
+        onSuccess(data.data || data.appointment);
       }
       
       // Close after delay
@@ -93,7 +94,7 @@ export default function ScheduleAppointmentModal({
       
     } catch (err) {
       console.error('Error creating appointment:', err);
-      setError(err.message);
+      setError(err.message || 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }

@@ -720,6 +720,71 @@ app.post('/api/report-bug', async (req, res) => {
 });
 
 // ============================================================================
+// DEMO SCHEDULE ENDPOINT - No auth required for demo purposes
+// ============================================================================
+app.post('/api/demo/schedule', async (req, res) => {
+  try {
+    const { phone, zipCode, issue, preferredTime, urgency, date, time, duration, notes } = req.body;
+    
+    // For demo purposes, just return success without saving to DB
+    // In production, this would create an actual appointment
+    
+    console.log('[DEMO] Schedule request:', { phone, zipCode, issue, preferredTime, date, time });
+    
+    res.json({
+      ok: true,
+      success: true,
+      message: 'Demo appointment scheduled successfully!',
+      data: {
+        id: 'demo-' + Date.now(),
+        phone,
+        zipCode,
+        issue,
+        preferredTime,
+        date,
+        time,
+        duration,
+        notes,
+        status: 'scheduled',
+        createdAt: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('[DEMO] Schedule error:', error);
+    res.status(500).json({ ok: false, success: false, error: 'Failed to schedule demo appointment' });
+  }
+});
+
+// ============================================================================
+// DEMO LEADS ENDPOINT - Fetch leads without auth for demo dashboard
+// ============================================================================
+app.get('/api/demo/leads', async (req, res) => {
+  try {
+    const { businessId } = req.query;
+    
+    if (!businessId) {
+      return res.status(400).json({ ok: false, error: 'businessId query parameter required' });
+    }
+
+    console.log('[DEMO] Fetching leads for business:', businessId);
+
+    // Fetch leads from database
+    const leads = await db.getLeadsByBusiness(businessId);
+    
+    console.log(`[DEMO] Found ${leads.length} leads for business ${businessId}`);
+
+    res.json({ 
+      ok: true,
+      leads: leads || [],
+      count: leads.length
+    });
+  } catch (error) {
+    console.error('[DEMO] Error fetching leads:', error);
+    res.status(500).json({ ok: false, error: 'Failed to fetch leads', details: error.message });
+  }
+});
+
+// ============================================================================
 // APPOINTMENTS API - Manage jobs/appointments - Now with database persistence
 // ============================================================================
 

@@ -5,7 +5,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import ChatInterface from './ChatInterface';
 import { useDemoChat } from './useDemoChat';
-import { BACKEND_URL } from '../../lib/config';
+import { BACKEND_URL, DEMO_BUSINESS } from '../../config/demoConfig';
 import BugReportModal from './BugReportModal';
 import ScheduleAppointmentModal from './ScheduleAppointmentModal';
 import Logo from '../Logo';
@@ -271,7 +271,7 @@ export default function OwnerChatLayout() {
                 </div>
                 <div className="flex justify-between">
                   <span className="font-medium">Business ID:</span>
-                  <span>demo-plumbing</span>
+                  <span>{DEMO_BUSINESS.slug}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="font-medium">Channel:</span>

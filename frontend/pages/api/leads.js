@@ -1,11 +1,12 @@
+import { DEMO_BUSINESS, BACKEND_URL } from '../../config/demoConfig';
+
 export default async function handler(req, res) {
   if (req.method === 'GET') {
-    const { businessId = 'demo-plumbing' } = req.query;
+    const { businessId = DEMO_BUSINESS.id } = req.query;
     
     try {
       // Fetch leads from backend API
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
-      const response = await fetch(`${backendUrl}/api/leads?businessId=${businessId}`);
+      const response = await fetch(`${BACKEND_URL}/api/demo/leads?businessId=${businessId}`);
       
       if (!response.ok) {
         throw new Error(`Backend API error: ${response.status}`);
@@ -14,8 +15,8 @@ export default async function handler(req, res) {
       const data = await response.json();
       
       // Return leads sorted by newest first
-      const sortedLeads = [...data.leads].sort((a, b) => 
-        new Date(b.createdAt) - new Date(a.createdAt)
+      const sortedLeads = [...(data.leads || [])].sort((a, b) => 
+        new Date(b.created_at || b.createdAt) - new Date(a.created_at || a.createdAt)
       );
       
       res.status(200).json({ 

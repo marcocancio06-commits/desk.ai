@@ -2,7 +2,7 @@
 // Handles state, messages, and API calls for both customer and owner views
 
 import { useState } from 'react';
-import { BACKEND_URL, DEFAULT_BUSINESS_ID } from '../../lib/config';
+import { BACKEND_URL, DEMO_BUSINESS } from '../../config/demoConfig';
 
 export function useDemoChat() {
   const [customerPhone, setCustomerPhone] = useState('');
@@ -45,7 +45,7 @@ export function useDemoChat() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          businessId: DEFAULT_BUSINESS_ID,
+          businessId: DEMO_BUSINESS.id,
           from: customerPhone,
           channel: 'web_chat',
           message: userMessage

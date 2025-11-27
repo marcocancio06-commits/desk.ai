@@ -24,35 +24,38 @@ const logger = require('./logger');
 async function getBusinessConfig(businessId) {
   // ===== FALLBACK: Demo Business (for backward compatibility) =====
   const DEMO_CONFIG = {
-    business_id: 'demo-plumbing',
-    business_name: 'Houston Premier Plumbing',
-    name: 'Houston Premier Plumbing',
-    serviceAreas: ['77005', '77030', '77098'],
+    business_id: 'elite-auto-detail',
+    business_name: 'Elite Auto Detailing',
+    name: 'Elite Auto Detailing',
+    serviceAreas: ['77005', '77004', '77006', '77019', '77098'],
     services: [
-      'drain cleaning',
-      'water heater repair',
-      'leak detection',
-      'toilet repair',
-      'emergency plumbing'
+      'interior detailing',
+      'exterior wash',
+      'full detail',
+      'ceramic coating',
+      'paint correction'
     ],
     pricing: {
-      'drain cleaning': '$150–$250',
-      'water heater repair': '$200–$400',
-      'leak detection': '$125–$200',
-      'toilet repair': '$100–$175',
-      'emergency plumbing': '$250–$500'
+      'interior detailing': '$150–$250',
+      'exterior wash': '$50–$100',
+      'full detail': '$250–$400',
+      'ceramic coating': '$500–$1200',
+      'paint correction': '$300–$600'
     },
     hours: {
-      weekdays: '8:00 AM - 6:00 PM',
+      monday: '8:00 AM - 6:00 PM',
+      tuesday: '8:00 AM - 6:00 PM',
+      wednesday: '8:00 AM - 6:00 PM',
+      thursday: '8:00 AM - 6:00 PM',
+      friday: '8:00 AM - 6:00 PM',
       saturday: '9:00 AM - 4:00 PM',
       sunday: 'Closed'
     },
     policies: {
-      tripFee: '$75 service call fee, waived if repair is completed',
-      cancellation: 'Free cancellation up to 2 hours before appointment',
-      emergency: '24/7 emergency service available with additional fees'
+      cancellation: '24-hour notice required',
+      payment: 'Payment due upon completion'
     },
-    industry: 'plumbing',
+    industry: 'auto_detailing',
     // TODO: Add training_context field for per-business AI customization
     training_context: null
   };
