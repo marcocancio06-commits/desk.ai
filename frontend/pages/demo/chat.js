@@ -12,9 +12,10 @@ import { DEMO_BUSINESS, BACKEND_URL } from '../../config/demoConfig';
 
 // Generate a unique session ID to ensure fresh conversations
 const generateSessionPhone = () => {
-  const timestamp = Date.now();
-  const random = Math.floor(Math.random() * 10000);
-  return `demo-${timestamp}-${random}`;
+  // Generate a fake phone number format that fits in 20 chars
+  // Format: 555XXXXXXX (10 digits, clearly fake, fits DB constraint)
+  const random = Math.floor(Math.random() * 9000000) + 1000000;
+  return `555${random}`;
 };
 
 export default function DemoCustomerChat() {
