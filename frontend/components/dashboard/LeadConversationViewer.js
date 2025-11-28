@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { MessageSquare, User, Bot, Phone, MapPin, Clock, AlertCircle, Calendar } from 'lucide-react';
+import { BACKEND_URL } from '../../lib/config';
 
 export default function LeadConversationViewer({ leadId }) {
   const [messages, setMessages] = useState([]);
@@ -17,8 +18,8 @@ export default function LeadConversationViewer({ leadId }) {
     try {
       // Fetch conversation messages and lead details
       const [timelineRes, leadRes] = await Promise.all([
-        fetch(`http://localhost:3001/api/leads/${leadId}/timeline`),
-        fetch(`http://localhost:3001/api/leads?limit=1000`)
+        fetch(`${BACKEND_URL}/api/leads/${leadId}/timeline`),
+        fetch(`${BACKEND_URL}/api/leads?limit=1000`)
       ]);
 
       const timelineData = await timelineRes.json();

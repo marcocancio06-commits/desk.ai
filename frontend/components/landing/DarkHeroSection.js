@@ -114,7 +114,7 @@ export default function DarkHeroSection() {
                 <div className="flex justify-start">
                   <div className="max-w-[85%] rounded-2xl rounded-tl-sm bg-slate-900/90 px-4 py-3 border border-purple-400/30 shadow-lg shadow-purple-500/10">
                     <p className="text-sm text-slate-100 mb-3">
-                      Perfect! I've booked you for 9 AM tomorrow with Houston Premier Plumbing.
+                      Perfect! I've booked you for 9 AM tomorrow with Elite Auto Detailing.
                     </p>
                     
                     {/* Status chip */}

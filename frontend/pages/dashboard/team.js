@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Layout from '../../components/dashboard/Layout';
 import { withAuth, useAuth } from '../../contexts/AuthContext';
 import { Users, Mail, Shield, Trash2, X, UserPlus, Clock } from 'lucide-react';
+import { BACKEND_URL } from '../../lib/config';
 
 function TeamManagement() {
   const router = useRouter();
@@ -36,7 +37,7 @@ function TeamManagement() {
     setLoading(true);
     try {
       const response = await fetch(
-        `http://localhost:3001/api/business/${businessId}/team`,
+        `${BACKEND_URL}/api/business/${businessId}/team`,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -75,7 +76,7 @@ function TeamManagement() {
 
     try {
       const response = await fetch(
-        `http://localhost:3001/api/business/${businessId}/invite`,
+        `${BACKEND_URL}/api/business/${businessId}/invite`,
         {
           method: 'POST',
           headers: {
@@ -123,7 +124,7 @@ function TeamManagement() {
 
     try {
       const response = await fetch(
-        `http://localhost:3001/api/business/${businessId}/team/${userId}`,
+        `${BACKEND_URL}/api/business/${businessId}/team/${userId}`,
         {
           method: 'DELETE',
           credentials: 'include',
@@ -154,7 +155,7 @@ function TeamManagement() {
 
     try {
       const response = await fetch(
-        `http://localhost:3001/api/business/${businessId}/invite/${inviteId}`,
+        `${BACKEND_URL}/api/business/${businessId}/invite/${inviteId}`,
         {
           method: 'DELETE',
           credentials: 'include',

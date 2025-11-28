@@ -4,6 +4,7 @@ import Layout from '../../components/dashboard/Layout';
 import { withAuth, useAuth } from '../../contexts/AuthContext';
 import { canAccessPage } from '../../lib/permissions';
 import { MARKETPLACE_ENABLED } from '../../lib/featureFlags';
+import { BACKEND_URL } from '../../lib/config';
 
 function Settings() {
   const router = useRouter();
@@ -95,7 +96,7 @@ function Settings() {
     
     try {
       const response = await fetch(
-        `http://localhost:3001/api/google/status?businessId=${businessId}`
+        `${BACKEND_URL}/api/google/status?businessId=${businessId}`
       );
       const data = await response.json();
       
@@ -117,7 +118,7 @@ function Settings() {
   // Fetch Twilio SMS status
   const fetchTwilioStatus = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/twilio/status');
+      const response = await fetch(`${BACKEND_URL}/api/twilio/status`);
       const data = await response.json();
       
       if (data.ok) {
@@ -139,7 +140,7 @@ function Settings() {
     if (!businessId) return;
     
     try {
-      const response = await fetch(`http://localhost:3001/api/business/${businessId}/team`);
+      const response = await fetch(`${BACKEND_URL}/api/business/${businessId}/team`);
       const data = await response.json();
       
       if (data.ok) {
@@ -160,7 +161,7 @@ function Settings() {
     
     setInviting(true);
     try {
-      const response = await fetch(`http://localhost:3001/api/business/${businessId}/invite`, {
+      const response = await fetch(`${BACKEND_URL}/api/business/${businessId}/invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -207,7 +208,7 @@ function Settings() {
     setMessage(null);
 
     try {
-      const response = await fetch('http://localhost:3001/api/google/disconnect', {
+      const response = await fetch(`${BACKEND_URL}/api/google/disconnect`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ businessId })
@@ -235,7 +236,7 @@ function Settings() {
     setMessage(null);
 
     try {
-      const response = await fetch('http://localhost:3001/api/google/sync', {
+      const response = await fetch(`${BACKEND_URL}/api/google/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ businessId })
@@ -270,7 +271,7 @@ function Settings() {
     setMessage(null);
     
     try {
-      const response = await fetch(`http://localhost:3001/api/business/${businessId}`, {
+      const response = await fetch(`${BACKEND_URL}/api/business/${businessId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_listed: newListedStatus })

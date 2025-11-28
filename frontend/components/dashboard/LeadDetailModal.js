@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Phone, MapPin, Clock, Tag, AlertCircle, Calendar, MessageSquare, Edit2, Save, Plus } from 'lucide-react';
 import LeadConversationViewer from './LeadConversationViewer';
+import { BACKEND_URL } from '../../lib/config';
 
 const AVAILABLE_TAGS = [
   'emergency',
@@ -46,8 +47,8 @@ export default function LeadDetailModal({ leadId, isOpen, onClose, onUpdate }) {
     try {
       // Fetch lead and timeline in parallel
       const [leadRes, timelineRes] = await Promise.all([
-        fetch(`http://localhost:3001/api/leads?limit=1000`),
-        fetch(`http://localhost:3001/api/leads/${leadId}/timeline`)
+        fetch(`${BACKEND_URL}/api/leads?limit=1000`),
+        fetch(`${BACKEND_URL}/api/leads/${leadId}/timeline`)
       ]);
 
       const leadData = await leadRes.json();
@@ -74,7 +75,7 @@ export default function LeadDetailModal({ leadId, isOpen, onClose, onUpdate }) {
 
   const handleStatusChange = async (newStatus) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/leads/${leadId}/status`, {
+      const response = await fetch(`${BACKEND_URL}/api/leads/${leadId}/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus, createdBy: 'user' })
@@ -95,7 +96,7 @@ export default function LeadDetailModal({ leadId, isOpen, onClose, onUpdate }) {
 
   const handleFieldSave = async (field) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/leads/${leadId}`, {
+      const response = await fetch(`${BACKEND_URL}/api/leads/${leadId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -119,7 +120,7 @@ export default function LeadDetailModal({ leadId, isOpen, onClose, onUpdate }) {
     
     setAddingNote(true);
     try {
-      const response = await fetch(`http://localhost:3001/api/leads/${leadId}/notes`, {
+      const response = await fetch(`${BACKEND_URL}/api/leads/${leadId}/notes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ note: newNote, createdBy: 'user' })
@@ -139,7 +140,7 @@ export default function LeadDetailModal({ leadId, isOpen, onClose, onUpdate }) {
 
   const handleAddTag = async (tag) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/leads/${leadId}/tags`, {
+      const response = await fetch(`${BACKEND_URL}/api/leads/${leadId}/tags`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tag, createdBy: 'user' })
@@ -156,7 +157,7 @@ export default function LeadDetailModal({ leadId, isOpen, onClose, onUpdate }) {
 
   const handleRemoveTag = async (tag) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/leads/${leadId}/tags/${tag}`, {
+      const response = await fetch(`${BACKEND_URL}/api/leads/${leadId}/tags/${tag}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ createdBy: 'user' })

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Layout from '../../components/dashboard/Layout';
 import { withAuth } from '../../contexts/AuthContext';
+import { BACKEND_URL } from '../../lib/config';
 
 function Logs() {
   const [logs, setLogs] = useState([]);
@@ -17,7 +18,7 @@ function Logs() {
     try {
       setError(null);
       const response = await fetch(
-        `http://localhost:3001/api/admin/logs?lines=${numLines}&errorOnly=${errorOnly}`,
+        `${BACKEND_URL}/api/admin/logs?lines=${numLines}&errorOnly=${errorOnly}`,
         {
           credentials: 'include'
         }
@@ -44,7 +45,7 @@ function Logs() {
   // Fetch SMS queue status
   const fetchQueueStatus = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/admin/sms-queue', {
+      const response = await fetch(`${BACKEND_URL}/api/admin/sms-queue`, {
         credentials: 'include'
       });
       

@@ -123,7 +123,7 @@ async function assignUserToDemoBusiness(userId) {
       throw error;
     }
 
-    console.log(`✅ User ${userId} assigned to demo-plumbing business`);
+    console.log(`✅ User ${userId} assigned to demo business`);
     return data;
   } catch (error) {
     console.error('Error in assignUserToDemoBusiness:', error);
