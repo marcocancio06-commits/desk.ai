@@ -784,6 +784,41 @@ app.get('/api/demo/leads', async (req, res) => {
   }
 });
 
+// Demo endpoint - fetch conversation history for a lead
+app.get('/api/demo/conversation/:leadId', async (req, res) => {
+  try {
+    const { leadId } = req.params;
+    
+    console.log('[DEMO] Fetching conversation for lead:', leadId);
+
+    // Fetch messages for this lead from the messages table
+    const { data: messages, error } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('lead_id', leadId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('[DEMO] Error fetching conversation:', error);
+      return res.status(500).json({ ok: false, error: 'Failed to fetch conversation' });
+    }
+
+    // Transform to simple format for frontend
+    const formattedMessages = (messages || []).map(msg => ({
+      role: msg.role || (msg.is_from_customer ? 'user' : 'assistant'),
+      content: msg.content || msg.message,
+      timestamp: msg.created_at
+    }));
+
+    console.log(`[DEMO] Found ${formattedMessages.length} messages for lead ${leadId}`);
+
+    res.json({ ok: true, messages: formattedMessages });
+  } catch (error) {
+    console.error('[DEMO] Conversation endpoint error:', error);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
 // ============================================================================
 // APPOINTMENTS API - Manage jobs/appointments - Now with database persistence
 // ============================================================================

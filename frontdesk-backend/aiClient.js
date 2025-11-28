@@ -431,7 +431,8 @@ function getFallbackResponse(message, previousData = {}) {
     booking_intent: 'collecting_info',
     collected_data: data,
     confidence_scores: confidence,
-    internal_notes: 'LLM unavailable, used fallback extraction.'
+    internal_notes: null, // Don't show technical fallback messages to users
+    used_fallback: true   // Flag for debugging purposes
   };
 }
 
