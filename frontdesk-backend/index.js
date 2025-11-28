@@ -768,8 +768,8 @@ app.get('/api/demo/leads', async (req, res) => {
 
     console.log('[DEMO] Fetching leads for business:', businessId);
 
-    // Fetch leads from database
-    const leads = await db.getLeadsByBusiness(businessId);
+    // Fetch leads from database (getAllLeads is the correct function name)
+    const leads = await db.getAllLeads(businessId);
     
     console.log(`[DEMO] Found ${leads.length} leads for business ${businessId}`);
 
