@@ -84,18 +84,25 @@ app.post('/api/message', async (req, res) => {
       return res.status(500).json({ error: 'Database not configured' });
     }
     
-    const { data: business, error: businessError } = await supabase
-      .from('businesses')
-      .select('id, is_active')
-      .eq('id', businessId)
-      .eq('is_active', true)
-      .single();
+    // Check if this is a demo request - skip business verification if so
+    const isDemo = req.body.isDemo === true || businessId === 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
     
-    if (businessError || !business) {
-      return res.status(404).json({
-        error: 'Business not found or inactive',
-        code: 'BUSINESS_NOT_FOUND'
-      });
+    if (!isDemo) {
+      const { data: business, error: businessError } = await supabase
+        .from('businesses')
+        .select('id, is_active')
+        .eq('id', businessId)
+        .eq('is_active', true)
+        .single();
+      
+      if (businessError || !business) {
+        return res.status(404).json({
+          error: 'Business not found or inactive',
+          code: 'BUSINESS_NOT_FOUND'
+        });
+      }
+    } else {
+      console.log('[DEMO] Skipping business verification for demo mode');
     }
     
     const targetFrom = from || 'unknown';
@@ -804,9 +811,10 @@ app.get('/api/demo/conversation/:leadId', async (req, res) => {
     }
 
     // Transform to simple format for frontend
+    // Note: messages table uses 'text' column and 'sender' column
     const formattedMessages = (messages || []).map(msg => ({
-      role: msg.role || (msg.is_from_customer ? 'user' : 'assistant'),
-      content: msg.content || msg.message,
+      role: msg.sender === 'customer' ? 'user' : 'assistant',
+      content: msg.text || msg.content || msg.message || msg.body || '',
       timestamp: msg.created_at
     }));
 

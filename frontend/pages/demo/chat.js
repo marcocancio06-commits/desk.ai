@@ -10,8 +10,18 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { DEMO_BUSINESS, BACKEND_URL } from '../../config/demoConfig';
 
+// Generate a unique session ID to ensure fresh conversations
+const generateSessionPhone = () => {
+  const timestamp = Date.now();
+  const random = Math.floor(Math.random() * 10000);
+  return `demo-${timestamp}-${random}`;
+};
+
 export default function DemoCustomerChat() {
-  // Phone input state
+  // Generate unique session identifier on mount (prevents conversation bleed-through)
+  const [sessionId] = useState(() => generateSessionPhone());
+  
+  // Phone input state (display only - sessionId is used for backend)
   const [phone, setPhone] = useState('');
   const [phoneSubmitted, setPhoneSubmitted] = useState(false);
   
@@ -79,9 +89,11 @@ export default function DemoCustomerChat() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           businessId: DEMO_BUSINESS.id,
-          from: phone,
+          from: sessionId,  // Use unique session ID to ensure fresh conversation
+          displayPhone: phone,  // Store display phone separately
           channel: 'web_chat',
-          message: userMessage
+          message: userMessage,
+          isDemo: true  // Flag for demo mode
         })
       });
 
