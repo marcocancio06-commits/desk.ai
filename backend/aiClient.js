@@ -612,10 +612,10 @@ async function handleCustomerMessage({ businessId, from, channel, message, conve
   
   // Determine which model to use (default: Haiku for cost efficiency)
   const preferredModel = process.env.AI_MODEL === 'sonnet' 
-    ? 'claude-3-5-sonnet-20241022'
+    ? 'claude-3-sonnet-20240229'
     : 'claude-3-haiku-20240307';
   
-  const fallbackModel = 'claude-3-5-sonnet-20241022'; // Sonnet for rescue
+  const fallbackModel = 'claude-3-sonnet-20240229'; // Sonnet for rescue
   
   // Check if API key is available
   if (!apiKey) {
@@ -767,7 +767,7 @@ async function generateDailySummary({ businessId, metrics, appointments }) {
   
   // Use Sonnet for summaries if AI_MODEL=sonnet, otherwise Haiku
   const summaryModel = process.env.AI_MODEL === 'sonnet'
-    ? 'claude-3-5-sonnet-20241022'
+    ? 'claude-3-sonnet-20240229'
     : 'claude-3-haiku-20240307';
   
   const enhancedSystemPrompt = `You are an assistant generating a concise daily operational summary for a small service business owner.
