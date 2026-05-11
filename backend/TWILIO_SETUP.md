@@ -129,7 +129,7 @@ TWILIO_TEST_MODE=true  # true for sandbox, false for production
 # Other existing variables
 PORT=3001
 SUPABASE_URL=your_supabase_url
-SUPABASE_ANON_KEY=your_supabase_key
+SUPABASE_ANON_KEY=<REDACTED>
 OPENAI_API_KEY=your_openai_key
 # ... etc
 ```

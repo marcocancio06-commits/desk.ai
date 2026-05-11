@@ -54,8 +54,8 @@ This guide walks you through setting up Google Calendar OAuth integration for De
 
 ```bash
 # Google Calendar OAuth
-GOOGLE_OAUTH_CLIENT_ID=your-client-id.apps.googleusercontent.com
-GOOGLE_OAUTH_CLIENT_SECRET=your-client-secret
+GOOGLE_OAUTH_CLIENT_ID=<REDACTED>
+GOOGLE_OAUTH_CLIENT_SECRET=<REDACTED>
 GOOGLE_OAUTH_REDIRECT_URI=http://localhost:3001/api/google/callback
 FRONTEND_URL=http://localhost:3000
 ```
